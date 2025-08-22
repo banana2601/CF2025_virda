@@ -39,7 +39,11 @@ def halaman_catat_transaksi():
         jumlah_input = st.text_input(label="Jumlah (Rp)", placeholder="Contoh: 50000")
         deskripsi = st.text_area("Deskripsi")
 
-        submitted = st.form_submit_button("Simpan Transaksi", use_container_width=True)
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            st.form_submit_button("Reset", use_container_width=True)
+        with col2:
+            submitted = st.form_submit_button("Simpan Transaksi", use_container_width=True)
 
         if submitted:
             jumlah_str = jumlah_input.replace('.', '').strip()
