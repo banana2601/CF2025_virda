@@ -342,8 +342,8 @@ def halaman_lihat_saldo():
     st.markdown("""
     <style>
     .list-logo { height: 40px; width: auto; object-fit: contain; border-radius: 4px; }
-    .account-name { font-size: 18px; font-weight: 500; line-height: 2.5; }
-    .account-balance { font-size: 20px; font-weight: 600; }
+    .account-name { font-size: 20px; font-weight: 500; line-height: 1; }
+    .account-balance { font-size: 24px; font-weight: 600; }
     .account-balance-negative { color: #ff4b4b; }
     </style>
     """, unsafe_allow_html=True)
@@ -378,8 +378,13 @@ def halaman_lihat_saldo():
     st.metric(label=f"Total Saldo per {tanggal_pilihan.strftime('%d %B %Y')}", value=formatted_total)
     st.markdown("---")
     
-    # Loop untuk menampilkan setiap akun, logo, dan saldonya.
-    for akun_name, logo_url in SEMUA_AKUN_DENGAN_LOGO.items():
+    # Mengurutkan nama akun berdasarkan saldonya (dari terbesar ke terkecil).
+    # Fungsi `saldo_akun.get(akun, 0)` digunakan untuk menangani akun yang belum memiliki transaksi (saldo dianggap 0).
+    akun_terurut = sorted(SEMUA_AKUN_DENGAN_LOGO.keys(), key=lambda akun: saldo_akun.get(akun, 0), reverse=True)
+    
+    # Loop untuk menampilkan setiap akun, logo, dan saldonya berdasarkan urutan yang sudah dibuat.
+    for akun_name in akun_terurut:
+        logo_url = SEMUA_AKUN_DENGAN_LOGO[akun_name]
         saldo = saldo_akun.get(akun_name, 0)
         
         col1, col2 = st.columns([3, 2])
@@ -402,6 +407,7 @@ def halaman_lihat_saldo():
                 </div>
             ''', unsafe_allow_html=True)
         st.divider()
+
 
 def tampilkan_form_edit_hapus(df_filtered):
     """
