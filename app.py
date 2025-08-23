@@ -40,32 +40,43 @@ AKUN_JAGO_TERSIER = "Jago (tersier)"
 # --- Daftar Kategori Transaksi ---
 # Daftar ini digunakan untuk dropdown pada form input dan proses filter.
 # sorted() digunakan untuk memastikan urutannya sesuai abjad.
-KATEGORI_PEMASUKAN = sorted(["Dividen", "Gaji", "Hadiah", "Hibah", "Lainnya", "Reimbursement", "Top Up"])
+KATEGORI_PEMASUKAN = sorted(["Dividen", "Gaji", "Hadiah", "Hibah", "Lainnya", "Reimbursement"])
 # Menyamakan kapitalisasi "Top Up" agar konsisten dengan data.
 KATEGORI_PENGELUARAN = sorted([
-    "Dana Darurat", "Hobi/Keinginan", "Internet", "Investasi/Tabungan",
-    "Kendaraan/Mobilitas", "Kesehatan/Perawatan", "Lain-lain", "Main/Jajan",
-    "Makan", "Pengembangan Diri", "Reimbursement", "Tak Terduga", "Tempat Tinggal",
+    "Hobi/Keinginan", "Internet","Kendaraan/Mobilitas", "Kesehatan/Perawatan", "Lain-lain",
+    "Main/Jajan", "Makan", "Pengembangan Diri", "Reimbursement", "Tak Terduga", "Tempat Tinggal",
     "Top Up" 
 ])
 
 # --- Daftar Pilihan Akun ---
-PILIHAN_AKUN = [
-    "BNI", "Cash", "Jago", AKUN_JAGO_TERSIER, "GoPay", "ShopeePay", "DANA", "OVO"
-]
+PILIHAN_AKUN = sorted([
+    "BNI", "Cash", "Jago", AKUN_JAGO_TERSIER, "GoPay", "ShopeePay", "DANA", "OVO", "Dana Darurat", "Tabungan"
+])
 
 # --- Kamus (Dictionary) untuk Logo Akun ---
 # Memetakan nama akun ke URL logo mereka untuk tampilan yang lebih menarik.
+LOGO_JAGO = "https://upload.wikimedia.org/wikipedia/commons/c/c0/Logo-jago.svg"
+
 SEMUA_AKUN_DENGAN_LOGO = {
     "BNI": "https://upload.wikimedia.org/wikipedia/id/thumb/5/55/BNI_logo.svg/1280px-BNI_logo.svg.png",
     "Cash": "https://upload.wikimedia.org/wikipedia/commons/d/d8/Indonesia_2016_100000r_o.jpg",
-    "Jago": "https://upload.wikimedia.org/wikipedia/commons/c/c0/Logo-jago.svg",
-    AKUN_JAGO_TERSIER: "https://upload.wikimedia.org/wikipedia/commons/c/c0/Logo-jago.svg",
+    "Jago": LOGO_JAGO,
+    AKUN_JAGO_TERSIER: LOGO_JAGO,
     "GoPay": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Gopay_logo.svg/2560px-Gopay_logo.svg.png",
     "ShopeePay": "https://upload.wikimedia.org/wikipedia/commons/f/fe/Shopee.svg",
     "DANA": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Logo_dana_blue.svg/2560px-Logo_dana_blue.svg.png",
-    "OVO": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Logo_ovo_purple.svg/2560px-Logo_ovo_purple.svg.png"
+    "OVO": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Logo_ovo_purple.svg/2560px-Logo_ovo_purple.svg.png",
+    "Dana Darurat": LOGO_JAGO,
+    "Tabungan": LOGO_JAGO
 }
+
+def custom_divider(margin_top=10, margin_bottom=30, color="#3b3d43", thickness="0.5px"):
+    st.markdown(
+        f"""
+        <hr style="margin-top:{margin_top}px; margin-bottom:{margin_bottom}px; border:{thickness} solid {color};">
+        """,
+        unsafe_allow_html=True
+    )
 
 # ===================================================================================
 # --- KONEKSI KE SUPABASE ---
@@ -116,8 +127,25 @@ def halaman_dashboard():
     """
     Menampilkan dashboard analisis visual untuk data pemasukan dan pengeluaran.
     """
-    st.header("📊 Dashboard")
-
+    # st.markdown(
+    #     """
+    #     <style>
+    #     .judul-custom {
+    #         text-align: center !important;
+    #         font-size: 24px !important;
+    #         color: #e5e5e5 !important;
+    #         font-family: "Courier New", monospace !important;
+    #         font-weight: bold !important;
+    #         margin-top: 0px !important;
+    #         margin-bottom: 14px !important;
+    #     }
+    #     </style>
+    #     <div class="judul-custom">
+    #         📊 Dashboard
+    #     </div>
+    #     """,
+    #     unsafe_allow_html=True
+    # )
     # 1. Mengambil dan memproses data dasar
     df = get_data() 
     
@@ -161,7 +189,7 @@ def halaman_dashboard():
     df_filtered_pemasukan = df_pemasukan[(df_pemasukan['tanggal'].dt.date >= tgl_awal) & (df_pemasukan['tanggal'].dt.date <= tgl_akhir)]
     df_filtered_semua = df[(df['tanggal'].dt.date >= tgl_awal) & (df['tanggal'].dt.date <= tgl_akhir)]
 
-    st.subheader(f"Periode : &nbsp;&nbsp; {tgl_awal.strftime('%d %B %Y')} — {tgl_akhir.strftime('%d %B %Y')}")
+    st.markdown(f"###### Periode : &nbsp;&nbsp; {tgl_awal.strftime('%d %B %Y')} — {tgl_akhir.strftime('%d %B %Y')}")
 
     # 4. Layout Utama Dua Kolom untuk Pemasukan dan Pengeluaran
     col_pengeluaran, col_pemasukan = st.columns(2)
@@ -177,10 +205,22 @@ def halaman_dashboard():
 
             pengeluaran_per_kategori = df_filtered_pengeluaran.groupby('kategori')[COL_NOMINAL].sum().sort_values(ascending=False)
             
-            fig_pie_pengeluaran = px.pie(pengeluaran_per_kategori.reset_index(), values=COL_NOMINAL, names='kategori', hole=0.3)
-            fig_pie_pengeluaran.update_traces(textposition='outside', textinfo='percent+label', textfont_size=14)
-            fig_pie_pengeluaran.update_layout(showlegend=False)
-            st.plotly_chart(fig_pie_pengeluaran, use_container_width=True)
+            fig_pie_pengeluaran = px.pie(
+                pengeluaran_per_kategori.reset_index(),
+                values=COL_NOMINAL,
+                names='kategori',
+                hole=0.3
+            )
+            fig_pie_pengeluaran.update_traces(
+                textposition='outside',
+                textinfo='percent+label',
+                textfont_size=12
+            )
+            fig_pie_pengeluaran.update_layout(
+                margin=dict(t=40, b=60, l=60, r=60),
+                showlegend=False, height=400, width=400
+            )
+            st.plotly_chart(fig_pie_pengeluaran, use_container_width=False)
 
     # --- KOLOM KANAN: PEMASUKAN ---
     with col_pemasukan:
@@ -193,12 +233,24 @@ def halaman_dashboard():
 
             pemasukan_per_kategori = df_filtered_pemasukan.groupby('kategori')[COL_NOMINAL].sum().sort_values(ascending=False)
 
-            fig_pie_pemasukan = px.pie(pemasukan_per_kategori.reset_index(), values=COL_NOMINAL, names='kategori', hole=0.3)
-            fig_pie_pemasukan.update_traces(textposition='outside', textinfo='percent+label', textfont_size=14)
-            fig_pie_pemasukan.update_layout(showlegend=False)
-            st.plotly_chart(fig_pie_pemasukan, use_container_width=True)
+            fig_pie_pemasukan = px.pie(
+                pemasukan_per_kategori.reset_index(),
+                values=COL_NOMINAL,
+                names='kategori',
+                hole=0.3
+            )
+            fig_pie_pemasukan.update_traces(
+                textposition='outside',
+                textinfo='percent+label',
+                textfont_size=12
+            )
+            fig_pie_pemasukan.update_layout(
+                margin=dict(t=40, b=60, l=60, r=60),
+                showlegend=False, height=400, width=400
+            )
+            st.plotly_chart(fig_pie_pemasukan, use_container_width=False)
             
-    st.divider()
+    custom_divider()
 
     # 5. Bar Chart Pengeluaran (di bawah dua kolom)
     st.markdown("##### Nominal Pengeluaran per Kategori")
@@ -212,11 +264,11 @@ def halaman_dashboard():
         fig_bar.update_traces(texttemplate='Rp %{text:,.0f}', textposition='outside')
         fig_bar.update_layout(xaxis_tickangle=-45)
         st.plotly_chart(fig_bar, use_container_width=True)
-    
-    st.divider()
+
+    custom_divider()
 
     # 6. Tabel Detail Transaksi (di paling bawah)
-    st.subheader("Detail Transaksi")
+    st.markdown("##### Detail Transaksi")
     if df_filtered_semua.empty:
         st.warning("Tidak ada transaksi apapun pada rentang waktu yang dipilih.")
     else:
@@ -287,25 +339,52 @@ def halaman_dashboard():
 
 def halaman_catat_transaksi():
     """Menampilkan form untuk mencatat transaksi baru (pemasukan atau pengeluaran)."""
-    st.header(f"📝 {PAGE_CATAT_TRANSAKSI} Baru")
-    
-    # Pilihan jenis transaksi.
-    jenis = st.selectbox("Jenis Transaksi", [JENIS_PEMASUKAN, JENIS_PENGELUARAN])
 
-    # Menggunakan st.form agar input tidak langsung di-submit setiap kali diubah.
-    with st.form("form_transaksi", clear_on_submit=True):
-        # Input fields untuk data transaksi.
-        tanggal = st.date_input("Tanggal")
+    # st.markdown(
+    #     """
+    #     <style>
+    #     .judul-custom {
+    #         text-align: center !important;
+    #         font-size: 24px !important;
+    #         color: #e5e5e5 !important;
+    #         font-family: "Courier New", monospace !important;
+    #         font-weight: bold !important;
+    #         margin-top: 0px !important;
+    #         margin-bottom: 14px !important;
+    #     }
+    #     </style>
+    #     <div class="judul-custom">
+    #         📝 Catat Transaksi Baru
+    #     </div>
+    #     """,
+    #     unsafe_allow_html=True
+    # )
+    kir, kan = st.columns(2)
+    with kir:
+        jenis = st.selectbox("Jenis Transaksi", [JENIS_PEMASUKAN, JENIS_PENGELUARAN])
+    with kan:
         kategori = st.selectbox(
             "Kategori Pemasukan" if jenis == JENIS_PEMASUKAN else "Kategori Pengeluaran",
             KATEGORI_PEMASUKAN if jenis == JENIS_PEMASUKAN else KATEGORI_PENGELUARAN
-        )
-        akun = st.selectbox("Akun", PILIHAN_AKUN)
-        jumlah_input = st.text_input(label=LABEL_NOMINAL, placeholder="Contoh: 50000 atau 50.000, sama aja")
+            )
+
+    # Form dimulai setelah pilihan jenis & kategori fix
+    with st.form("form_transaksi", clear_on_submit=True):
+        tanggal = st.date_input("Tanggal")
+
+        # Kalau Keluar + Top Up → field khusus
+        if jenis == JENIS_PENGELUARAN and kategori == "Top Up":
+            dari_akun = st.selectbox("Dari Akun", PILIHAN_AKUN)
+            ke_akun = st.selectbox("Ke Akun", PILIHAN_AKUN)
+            akun = None
+        else:
+            akun = st.selectbox("Akun", PILIHAN_AKUN)
+            dari_akun, ke_akun = None, None
+
+        jumlah_input = st.text_input(LABEL_NOMINAL, placeholder="Contoh: 50000")
         deskripsi = st.text_area("Deskripsi")
 
-        # Tombol form.
-        col1, col2 = st.columns([1, 3])
+        col1, col2 = st.columns([1,3])
         with col1:
             st.form_submit_button("Reset", use_container_width=True)
         with col2:
@@ -313,45 +392,85 @@ def halaman_catat_transaksi():
 
         # Logika yang dijalankan saat form di-submit.
         if submitted:
-            # Membersihkan dan memvalidasi input nominal.
             jumlah_str = jumlah_input.replace('.', '').strip()
             if not jumlah_str.isdigit():
                 st.error("Input Nominal invalid. Harap masukkan angka saja.")
             elif int(jumlah_str) <= 0:
                 st.warning("Jumlah harus lebih besar dari 0.")
             else:
-                # Jika valid, siapkan data dan kirim ke Supabase.
                 jumlah_int = int(jumlah_str)
-                data_to_insert = {
-                    "tanggal": tanggal.strftime("%Y-%m-%d"), "jenis": jenis, "kategori": kategori,
-                    "akun": akun, COL_NOMINAL: jumlah_int, "deskripsi": deskripsi
-                }
-                supabase.table("Cashflow").insert(data_to_insert).execute()
+
+                if jenis == JENIS_PENGELUARAN and kategori == "Top Up":
+                    # Baris pertama: keluar dari akun asal
+                    data_keluar = {
+                        "tanggal": tanggal.strftime("%Y-%m-%d"),
+                        "jenis": JENIS_PENGELUARAN,
+                        "kategori": "Top Up",
+                        "akun": dari_akun,
+                        COL_NOMINAL: jumlah_int,
+                        "deskripsi": deskripsi,
+                    }
+                    # Baris kedua: masuk ke akun tujuan
+                    data_masuk = {
+                        "tanggal": tanggal.strftime("%Y-%m-%d"),
+                        "jenis": JENIS_PEMASUKAN,
+                        "kategori": "Top Up",
+                        "akun": ke_akun,
+                        COL_NOMINAL: jumlah_int,
+                        "deskripsi": deskripsi,
+                    }
+                    supabase.table("Cashflow").insert([data_keluar, data_masuk]).execute()
+                    st.success(f"Transaksi Top Up {dari_akun} → {ke_akun} Rp{jumlah_int:,.0f}".replace(',', '.') + " berhasil disimpan 👌")
+
+                else:
+                    # Transaksi biasa
+                    data_to_insert = {
+                        "tanggal": tanggal.strftime("%Y-%m-%d"),
+                        "jenis": jenis,
+                        "kategori": kategori,
+                        "akun": akun,
+                        COL_NOMINAL: jumlah_int,
+                        "deskripsi": deskripsi,
+                    }
+                    supabase.table("Cashflow").insert(data_to_insert).execute()
+                    st.success(f"Transaksi '{kategori}' sebesar Rp{jumlah_int:,.0f}".replace(',', '.') + " berhasil disimpan 👌")
+
+                # Refresh cache & reload
                 st.cache_data.clear()
-                st.success(f"Transaksi '{kategori}' sebesar Rp{jumlah_int:,.0f}".replace(',', '.') + " berhasil disimpan 👌")
                 st.rerun()
 
 def halaman_lihat_saldo():
     """
     Menghitung dan menampilkan saldo kumulatif untuk setiap akun hingga tanggal yang dipilih.
     """
-    st.header("💰 Saldo per Akun")
-
-    # Widget untuk memilih tanggal, dengan nilai default hari ini.
-    tanggal_pilihan = st.date_input("Lihat Saldo per Tanggal", value=datetime.now().date())
-
-    # Menambahkan CSS custom untuk styling tampilan daftar akun.
-    st.markdown("""
-    <style>
-    .list-logo { height: 40px; width: auto; object-fit: contain; border-radius: 4px; }
-    .account-name { font-size: 20px; font-weight: 500; line-height: 1; }
-    .account-balance { font-size: 24px; font-weight: 600; }
-    .account-balance-negative { color: #ff4b4b; }
-    </style>
-    """, unsafe_allow_html=True)
+    # st.markdown(
+    #     """
+    #     <style>
+    #     .judul-custom {
+    #         text-align: center !important;
+    #         font-size: 24px !important;
+    #         color: #e5e5e5 !important;
+    #         font-family: "Courier New", monospace !important;
+    #         font-weight: bold !important;
+    #         margin-top: 0px !important;
+    #         margin-bottom: 14px !important;
+    #     }
+    #     </style>
+    #     <div class="judul-custom">
+    #         💰 Saldo Akun
+    #     </div>
+    #     """,
+    #     unsafe_allow_html=True
+    # )
+    
+    kol1, kol2 = st.columns(2)
 
     # 1. Mengambil data dari Supabase.
     df = get_data()  # Mengambil data dari fungsi yang sudah didefinisikan sebelumnya.
+    
+    with kol1:
+        # Widget untuk memilih tanggal, dengan nilai default hari ini.
+        tanggal_pilihan = st.date_input("Lihat Saldo per Tanggal", value=datetime.now().date())
 
     # 2. Memproses dan membersihkan data.
     saldo_akun = {}
@@ -370,20 +489,32 @@ def halaman_lihat_saldo():
             saldo_df.columns = ['pemasukan', 'pengeluaran']
             saldo_df['saldo'] = saldo_df['pemasukan'] - saldo_df['pengeluaran']
             saldo_akun = saldo_df['saldo'].to_dict()
+    
+    with kol2:
+        # 5. Menampilkan total saldo dan daftar saldo per akun.
+        total_saldo_keseluruhan = sum(saldo_akun.values())
+        formatted_total = f"Rp {total_saldo_keseluruhan:,.0f}".replace(',', '.')
+        if total_saldo_keseluruhan < 0:
+            formatted_total = f"-Rp {abs(total_saldo_keseluruhan):,.0f}".replace(',', '.')
 
-    # 5. Menampilkan total saldo dan daftar saldo per akun.
-    total_saldo_keseluruhan = sum(saldo_akun.values())
-    formatted_total = f"Rp {total_saldo_keseluruhan:,.0f}".replace(',', '.')
-    if total_saldo_keseluruhan < 0:
-        formatted_total = f"-Rp {abs(total_saldo_keseluruhan):,.0f}".replace(',', '.')
-    
-    st.metric(label=f"Total Saldo per {tanggal_pilihan.strftime('%d %B %Y')}", value=formatted_total)
-    st.markdown("---")
-    
+        st.metric(label=f"Total Saldo per {tanggal_pilihan.strftime('%d %B %Y')}", value=formatted_total)
+
+    # Menambahkan CSS custom untuk styling tampilan daftar akun.
+    st.markdown("""
+    <style>
+    .list-logo { height: 40px; width: auto; object-fit: contain; border-radius: 4px; }
+    .account-name { font-size: 20px; font-weight: 500; line-height: 1; }
+    .account-balance { font-size: 24px; font-weight: 600; }
+    .account-balance-negative { color: #ff4b4b; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    custom_divider()
+
     # Mengurutkan nama akun berdasarkan saldonya (dari terbesar ke terkecil).
     # Fungsi `saldo_akun.get(akun, 0)` digunakan untuk menangani akun yang belum memiliki transaksi (saldo dianggap 0).
     akun_terurut = sorted(SEMUA_AKUN_DENGAN_LOGO.keys(), key=lambda akun: saldo_akun.get(akun, 0), reverse=True)
-    
+
     # Loop untuk menampilkan setiap akun, logo, dan saldonya berdasarkan urutan yang sudah dibuat.
     for akun_name in akun_terurut:
         logo_url = SEMUA_AKUN_DENGAN_LOGO[akun_name]
@@ -408,7 +539,8 @@ def halaman_lihat_saldo():
                     <span class="account-balance {color_class}">{formatted_saldo}</span>
                 </div>
             ''', unsafe_allow_html=True)
-        st.divider()
+        
+        custom_divider()
 
 
 def tampilkan_form_edit_hapus(df_filtered):
@@ -425,7 +557,7 @@ def tampilkan_form_edit_hapus(df_filtered):
         pilihan_transaksi.insert(0, "Pilih transaksi untuk diedit / dihapus")
 
         # 2. Dropdown untuk memilih transaksi.
-        transaksi_terpilih = st.selectbox("Pilih Transaksi", pilihan_transaksi)
+        transaksi_terpilih = st.selectbox("Pilih Data Transaksi", pilihan_transaksi)
 
         # 3. Jika sebuah transaksi dipilih, tampilkan form edit/hapus.
         if transaksi_terpilih != "Pilih transaksi untuk diedit / dihapus":
@@ -433,7 +565,7 @@ def tampilkan_form_edit_hapus(df_filtered):
             data_lama = df_filtered[df_filtered['id'] == id_terpilih].iloc[0]
 
             with st.form("form_edit"):
-                st.info(f"Anda sedang mengedit transaksi ID: {id_terpilih}")
+                st.info(f"Anda sedang mengedit transaksi dengan ID: {id_terpilih}")
 
                 # Input fields diisi dengan data lama sebagai nilai default.
                 tanggal_edit = st.date_input("Tanggal", value=pd.to_datetime(data_lama['tanggal']))
@@ -452,11 +584,13 @@ def tampilkan_form_edit_hapus(df_filtered):
                 deskripsi_edit = st.text_area("Deskripsi", value=data_lama['deskripsi'])
 
                 # Tombol untuk Hapus dan Update.
-                delete_col, update_col = st.columns(2)
+                delete_col, update_col, cancel_col = st.columns(3)
                 with delete_col:
-                    delete_button = st.form_submit_button("Hapus", use_container_width=True)
+                    delete_button = st.form_submit_button("Hapus Data Transaksi", use_container_width=True)
                 with update_col:
-                    update_button = st.form_submit_button("Update", use_container_width=True)
+                    update_button = st.form_submit_button("Update Data Transaksi", use_container_width=True)
+                with cancel_col:
+                    cancel_button = st.form_submit_button("Batal", use_container_width=True)
 
                 # Logika saat tombol Update ditekan.
                 if update_button:
@@ -478,10 +612,34 @@ def tampilkan_form_edit_hapus(df_filtered):
                     st.session_state.force_close_expander = True
                     st.rerun() # Muat ulang halaman.
 
+                if cancel_button:
+                    st.cache_data.clear()
+                    st.info("Edit transaksi dibatalkan.")
+                    st.session_state.force_close_expander = True
+                    st.rerun()
+
 
 def halaman_daftar_transaksi():
     """Menampilkan semua data transaksi dalam bentuk tabel dengan opsi filter yang lengkap."""
-    st.header(f"🧾 {PAGE_DAFTAR_TRANSAKSI}")
+    # st.markdown(
+    #     """
+    #     <style>
+    #     .judul-custom {
+    #         text-align: center !important;
+    #         font-size: 24px !important;
+    #         color: #e5e5e5 !important;
+    #         font-family: "Courier New", monospace !important;
+    #         font-weight: bold !important;
+    #         margin-top: 0px !important;
+    #         margin-bottom: 14px !important;
+    #     }
+    #     </style>
+    #     <div class="judul-custom">
+    #         🧾 Daftar Transaksi
+    #     </div>
+    #     """,
+    #     unsafe_allow_html=True
+    # )
 
     # 1. Mengambil data dari Supabase, diurutkan berdasarkan tanggal terbaru.
     df_all = get_data() # Panggil fungsi terpusat
@@ -575,26 +733,51 @@ def halaman_daftar_transaksi():
 # ===================================================================================
 def main():
     """Fungsi utama yang menjalankan aplikasi dan mengatur navigasi antar halaman."""
-    st.markdown("# Langkah awal menuju ✨*Financial Freedom*✨")
-    
-    # Membuat tombol navigasi dalam layout 2x2.
-    row1_col1, row1_col2 = st.columns(2)
-    row2_col1, row2_col2 = st.columns(2)
+    st.markdown(
+    """
+    <style>
+    /* Import font dari Google Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600&family=Dancing+Script:wght@600&display=swap');
 
-    with row1_col1:
-        if st.button(f"📊 {PAGE_DASHBOARD}", use_container_width=True):
-            st.session_state.page = PAGE_DASHBOARD
-    with row1_col2:
-        if st.button(f"📝 {PAGE_CATAT_TRANSAKSI}", use_container_width=True):
-            st.session_state.page = PAGE_CATAT_TRANSAKSI
-    with row2_col1:
-        if st.button(f"💰 {PAGE_LIHAT_SALDO}", use_container_width=True):
-            st.session_state.page = PAGE_LIHAT_SALDO
-    with row2_col2:
-        if st.button(f"🧾 {PAGE_DAFTAR_TRANSAKSI}", use_container_width=True):
-            st.session_state.page = PAGE_DAFTAR_TRANSAKSI
+    .judul-atas {
+        text-align: center !important;
+        font-size: 14px !important;
+        color: #4a4a4a !important;
+        font-family: 'Poppins', sans-serif !important;
+        margin-bottom: 0px !important;
+    }
 
-    st.markdown("---")
+    .judul-bawah {
+        text-align: center !important;
+        font-size: 38px !important;
+        color: #e5e5e5 !important;
+        font-family: 'Dancing Script', cursive !important;
+        margin-top: 0px !important;
+        margin-bottom: 25px !important;
+    }
+    </style>
+
+    <div class="judul-atas">Langkah Awal Menuju</div>
+    <div class="judul-bawah">✨ <em>Financial Freedom</em> ✨</div>
+    """,
+    unsafe_allow_html=True
+    )
+ 
+    menu = st.selectbox(
+        "📌 Menu",
+        [PAGE_DASHBOARD, PAGE_LIHAT_SALDO, PAGE_CATAT_TRANSAKSI, PAGE_DAFTAR_TRANSAKSI],
+        format_func=lambda x: {
+            PAGE_DASHBOARD: "📊 Dashboard",
+            PAGE_LIHAT_SALDO: "💰 Saldo Akun",
+            PAGE_CATAT_TRANSAKSI: "📝 Catat Transaksi",
+            PAGE_DAFTAR_TRANSAKSI: "🧾 Daftar Transaksi"
+        }[x],
+    )
+
+    # Simpan ke session_state
+    st.session_state.page = menu
+
+    custom_divider()
 
     # Menggunakan st.session_state untuk menyimpan halaman yang sedang aktif.
     # Ini adalah cara sederhana untuk membuat aplikasi multi-halaman di Streamlit.
