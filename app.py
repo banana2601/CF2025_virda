@@ -327,7 +327,9 @@ def halaman_catat_transaksi():
                     "akun": akun, COL_NOMINAL: jumlah_int, "deskripsi": deskripsi
                 }
                 supabase.table("Cashflow").insert(data_to_insert).execute()
+                st.cache_data.clear()
                 st.success(f"Transaksi '{kategori}' sebesar Rp{jumlah_int:,.0f}".replace(',', '.') + " berhasil disimpan 👌")
+                st.rerun()
 
 def halaman_lihat_saldo():
     """
@@ -414,7 +416,7 @@ def tampilkan_form_edit_hapus(df_filtered):
     Menampilkan expander berisi form untuk mengedit atau menghapus transaksi terpilih.
     Fungsi ini dipanggil dari dalam halaman 'Daftar Transaksi'.
     """
-    with st.expander("✏️ Edit / Hapus Transaksi"):
+    with st.expander("✏️ Edit / Hapus Transaksi", expanded=False):
         # 1. Membuat daftar pilihan transaksi dari data yang sudah difilter.
         pilihan_transaksi = [
             f"{row['id']} -- ({row['tanggal'].strftime('%Y-%m-%d')}) -- {row['kategori']} (Rp {row[COL_NOMINAL]:,}) -- {row['deskripsi']}".replace(',', '.')
@@ -463,13 +465,17 @@ def tampilkan_form_edit_hapus(df_filtered):
                         "akun": akun_edit, COL_NOMINAL: nominal_edit, "deskripsi": deskripsi_edit
                     }
                     supabase.table("Cashflow").update(data_baru).eq("id", id_terpilih).execute()
+                    st.cache_data.clear()
                     st.success("Transaksi berhasil diupdate!")
+                    st.session_state.force_close_expander = True
                     st.rerun() # Muat ulang halaman untuk menampilkan data terbaru.
 
                 # Logika saat tombol Hapus ditekan.
                 if delete_button:
                     supabase.table("Cashflow").delete().eq("id", id_terpilih).execute()
+                    st.cache_data.clear()
                     st.warning("Transaksi berhasil dihapus!")
+                    st.session_state.force_close_expander = True
                     st.rerun() # Muat ulang halaman.
 
 
