@@ -741,7 +741,7 @@ def main():
 
     .judul-atas {
         text-align: center !important;
-        font-size: 14px !important;
+        font-size: 12px !important;
         color: #4a4a4a !important;
         font-family: 'Poppins', sans-serif !important;
         margin-bottom: 0px !important;
@@ -749,7 +749,7 @@ def main():
 
     .judul-bawah {
         text-align: center !important;
-        font-size: 38px !important;
+        font-size: 36px !important;
         color: #e5e5e5 !important;
         font-family: 'Dancing Script', cursive !important;
         margin-top: 0px !important;
