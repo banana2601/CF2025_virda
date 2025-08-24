@@ -352,7 +352,7 @@ def halaman_catat_transaksi():
     with kan:
         kategori_mapping = mapping_kategori_pemasukan if jenis == JENIS_PEMASUKAN else mapping_kategori_pengeluaran
         kategori = st.selectbox(
-            "Kategori Pemasukan" if jenis == JENIS_PEMASUKAN else "Kategori Pengeluaran",
+            "Kategori Pemasukan" if jenis == JENIS_PEMASUKAN else "Kategori Pengeluaran", label_visibility="visible",
             options=list(kategori_mapping.keys()),
             index=list(kategori_mapping.keys()).index(st.session_state.kategori) 
                   if st.session_state.kategori in kategori_mapping else 0,
@@ -362,7 +362,7 @@ def halaman_catat_transaksi():
 
     # --- 4. Form
     with st.form("form_transaksi", clear_on_submit=True):
-        tanggal = st.date_input("Tanggal", value=st.session_state.tanggal, key="tanggal")
+        tanggal = st.date_input("Tanggal", value=st.session_state.tanggal, key="tanggal", label_visibility="visible")
 
         # Kalau Keluar + Top Up → field khusus
         if jenis == JENIS_PENGELUARAN and kategori == "Top Up":
