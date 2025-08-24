@@ -3,8 +3,7 @@
 # ===================================================================================
 import streamlit as st
 import pandas as pd
-# Menambahkan timedelta untuk kalkulasi tanggal
-from datetime import datetime, timedelta 
+from datetime import datetime, timedelta
 from supabase import create_client
 import plotly.express as px
 
@@ -18,7 +17,7 @@ st.set_page_config(page_title="Cashflow", page_icon="💸", layout="wide")
 # --- DEFINISI KONSTANTA ---
 # ===================================================================================
 # Menggunakan konstanta membuat kode lebih mudah dibaca dan dikelola.
-# Jika ada perubahan nama atau label, cukup ubah di satu tempat ini.
+# Jika ada perubahan, cukup ubah di satu tempat ini.
 
 # --- Nama Halaman untuk Navigasi ---
 PAGE_CATAT_TRANSAKSI = "Catat Transaksi"
@@ -28,40 +27,33 @@ PAGE_DASHBOARD = "Dashboard"
 
 # --- Label dan Nama Kolom untuk Data ---
 LABEL_NOMINAL = "Nominal (Rp)"
-COL_NOMINAL = "nominal_(Rp)" # Sesuai dengan nama kolom di database.
+COL_NOMINAL = "nominal_(Rp)"  # Sesuai dengan nama kolom di database.
 
 # --- Jenis-Jenis Transaksi ---
 JENIS_PEMASUKAN = "Masuk"
 JENIS_PENGELUARAN = "Keluar"
-
-# --- Nama Akun Spesifik (jika diperlukan) ---
-AKUN_JAGO_TERSIER = "Jago (tersier)"
+KATEGORI_TOP_UP = "Top Up"  # Konstanta untuk kategori "Top Up"
 
 # --- Daftar Kategori Transaksi ---
-# Daftar ini digunakan untuk dropdown pada form input dan proses filter.
-# sorted() digunakan untuk memastikan urutannya sesuai abjad.
-KATEGORI_PEMASUKAN = sorted(["Dividen", "Gaji", "Hadiah", "Hibah", "Lainnya", "Reimbursement"])
-# Menyamakan kapitalisasi "Top Up" agar konsisten dengan data.
+KATEGORI_PEMASUKAN = sorted(["Dividen", "Gaji", "Hadiah", "Hibah", "Lainnya", "Reimbursement", KATEGORI_TOP_UP])
 KATEGORI_PENGELUARAN = sorted([
-    "Hobi/Keinginan", "Internet","Kendaraan/Mobilitas", "Kesehatan/Perawatan", "Lain-lain",
+    "Hobi/Keinginan", "Internet", "Kendaraan/Mobilitas", "Kesehatan/Perawatan", "Lain-lain",
     "Main/Jajan", "Makan", "Pengembangan Diri", "Reimbursement", "Tak Terduga", "Tempat Tinggal",
-    "Top Up" 
+    KATEGORI_TOP_UP
 ])
 
 # --- Daftar Pilihan Akun ---
 PILIHAN_AKUN = sorted([
-    "BNI", "Cash", "Jago", AKUN_JAGO_TERSIER, "GoPay", "ShopeePay", "DANA", "OVO", "Dana Darurat", "Tabungan"
+    "BNI", "Cash", "Jago", "Jago (tersier)", "GoPay", "ShopeePay", "DANA", "OVO", "Dana Darurat", "Tabungan"
 ])
 
 # --- Kamus (Dictionary) untuk Logo Akun ---
-# Memetakan nama akun ke URL logo mereka untuk tampilan yang lebih menarik.
 LOGO_JAGO = "https://upload.wikimedia.org/wikipedia/commons/c/c0/Logo-jago.svg"
-
 SEMUA_AKUN_DENGAN_LOGO = {
     "BNI": "https://upload.wikimedia.org/wikipedia/id/thumb/5/55/BNI_logo.svg/1280px-BNI_logo.svg.png",
     "Cash": "https://upload.wikimedia.org/wikipedia/commons/d/d8/Indonesia_2016_100000r_o.jpg",
     "Jago": LOGO_JAGO,
-    AKUN_JAGO_TERSIER: LOGO_JAGO,
+    "Jago (tersier)": LOGO_JAGO,
     "GoPay": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Gopay_logo.svg/2560px-Gopay_logo.svg.png",
     "ShopeePay": "https://upload.wikimedia.org/wikipedia/commons/f/fe/Shopee.svg",
     "DANA": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Logo_dana_blue.svg/2560px-Logo_dana_blue.svg.png",
@@ -70,35 +62,33 @@ SEMUA_AKUN_DENGAN_LOGO = {
     "Tabungan": LOGO_JAGO
 }
 
+# ===================================================================================
+# --- FUNGSI UTILITAS TAMPILAN ---
+# ===================================================================================
 def custom_divider(margin_top=10, margin_bottom=30, color="#3b3d43", thickness="0.5px"):
+    """Menampilkan garis pemisah horizontal dengan gaya kustom."""
     st.markdown(
-        f"""
-        <hr style="margin-top:{margin_top}px; margin-bottom:{margin_bottom}px; border:{thickness} solid {color};">
-        """,
+        f"""<hr style="margin-top:{margin_top}px; margin-bottom:{margin_bottom}px; border:{thickness} solid {color};">""",
         unsafe_allow_html=True
     )
 
 # ===================================================================================
-# --- KONEKSI KE SUPABASE ---
+# --- KONEKSI KE SUPABASE & PENGAMBILAN DATA ---
 # ===================================================================================
-@st.cache_resource # Decorator ini memastikan koneksi hanya dibuat sekali.
+@st.cache_resource
 def init_connection():
-    """Menginisialisasi koneksi ke Supabase menggunakan kredensial dari secrets."""
+    """Menginisialisasi koneksi ke Supabase."""
     url = st.secrets["supabase"]["url"]
     key = st.secrets["supabase"]["key"]
     return create_client(url, key)
 
-# Membuat instance klien Supabase yang akan digunakan di seluruh aplikasi.
 supabase = init_connection()
 
-# ===================================================================================
-# --- FUNGSI UTAMA PENGOLAHAN DATA ---
-# ===================================================================================
-@st.cache_data(ttl=600) # Cache data selama 10 menit
+@st.cache_data(ttl=600)  # Cache data selama 10 menit
 def get_data():
     """
-    Mengambil, membersihkan, dan mengembalikan semua data transaksi
-    sebagai sebuah DataFrame Pandas.
+    Mengambil, membersihkan, dan mengembalikan semua data transaksi.
+    Data di-cache untuk mengurangi query berulang ke database.
     """
     try:
         response = supabase.table("Cashflow").select("*").order("tanggal", desc=True).execute()
@@ -107,46 +97,30 @@ def get_data():
         if df.empty:
             return df
 
-        # Lakukan pembersihan dan konversi tipe data di sini
-        df['jenis'] = df['jenis'].str.strip()
-        df['kategori'] = df['kategori'].str.strip()
-        df['akun'] = df['akun'].str.strip()
+        # Pembersihan dan konversi tipe data terpusat
+        for col in ['jenis', 'kategori', 'akun']:
+            if col in df.columns:
+                df[col] = df[col].str.strip()
         df['tanggal'] = pd.to_datetime(df['tanggal'])
         df[COL_NOMINAL] = pd.to_numeric(df[COL_NOMINAL])
         
         return df
     except Exception as e:
         st.error(f"Gagal mengambil data dari database: {e}")
-        return pd.DataFrame() # Kembalikan DataFrame kosong jika error
+        return pd.DataFrame()
 
 # ===================================================================================
-# --- FUNGSI-FUNGSI UNTUK SETIAP HALAMAN ---
+# --- FUNGSI-FUNGSI PEMBANTU (HELPER FUNCTIONS) ---
 # ===================================================================================
 
-def halaman_dashboard():
-    """Menampilkan dashboard analisis visual untuk data pemasukan dan pengeluaran."""
-    # 1. Mengambil dan memproses data dasar
-    df = get_data() 
-    
-    if df.empty:
-        st.info("Belum ada data transaksi untuk ditampilkan.")
-        return
-
-    # 2. Memisahkan data Pemasukan dan Pengeluaran
-    df_pengeluaran = df[
-        (df['jenis'] == JENIS_PENGELUARAN) &
-        (df['kategori'].str.lower() != 'top up')
-    ].copy()
-    df_pemasukan = df[
-        (df['jenis'] == JENIS_PEMASUKAN) &
-        (df['kategori'].str.lower() != 'top up')
-    ].copy()
-
-    # 3. Widget Filter Tanggal Utama
+# --- Helper untuk Halaman Dashboard ---
+def _create_date_filters(df):
+    """Membuat dan menampilkan widget filter tanggal, lalu mengembalikan tanggal yang dipilih."""
     with st.expander("Filter Periode"):
         tgl_min_data = df['tanggal'].min().date()
         tgl_max_data = df['tanggal'].max().date()
         
+        # Logika untuk menentukan tanggal default (bulan berjalan)
         hari_acuan = tgl_max_data
         default_tgl_awal = hari_acuan.replace(day=1)
         hari_pertama_bulan_depan = (default_tgl_awal + timedelta(days=32)).replace(day=1)
@@ -154,91 +128,180 @@ def halaman_dashboard():
         default_tgl_akhir = min(hari_terakhir_bulan_acuan, tgl_max_data)
 
         col1, col2 = st.columns(2)
-        with col1:
-            tgl_awal = st.date_input("Dari", value=default_tgl_awal, min_value=tgl_min_data, max_value=tgl_max_data)
-        with col2:
-            tgl_akhir = st.date_input("Sampai", value=default_tgl_akhir, min_value=tgl_min_data, max_value=tgl_max_data)
+        tgl_awal = col1.date_input("Dari", value=default_tgl_awal, min_value=tgl_min_data, max_value=tgl_max_data)
+        tgl_akhir = col2.date_input("Sampai", value=default_tgl_akhir, min_value=tgl_min_data, max_value=tgl_max_data)
 
-        if tgl_awal > tgl_akhir:
-            st.error("Tanggal Mulai tidak boleh melebihi Tanggal Selesai.")
+    if tgl_awal > tgl_akhir:
+        st.error("Tanggal Mulai tidak boleh melebihi Tanggal Selesai.")
+        return None, None
+
+    return tgl_awal, tgl_akhir
+
+def _display_summary_pie_chart(df, title):
+    """Menampilkan metrik total dan diagram lingkaran untuk data yang diberikan."""
+    if df.empty:
+        st.info(f"Tidak ada data {title.lower()} pada periode ini.")
+        return
+
+    total = df[COL_NOMINAL].sum()
+    formatted_total = f"Rp {total:,.0f}".replace(',', '.')
+    st.metric(f"Total {title}", formatted_total)
+
+    data_per_kategori = df.groupby('kategori')[COL_NOMINAL].sum().sort_values(ascending=False)
+    
+    fig = px.pie(
+        data_per_kategori.reset_index(),
+        values=COL_NOMINAL,
+        names='kategori',
+        hole=0.3
+    )
+    fig.update_traces(textposition='outside', textinfo='percent+label', textfont_size=12)
+    fig.update_layout(
+        margin={'t': 40, 'b': 60, 'l': 60, 'r': 60},
+        showlegend=False, height=400, width=400
+    )
+    st.plotly_chart(fig, use_container_width=False)
+
+def _apply_detailed_filters(df):
+    """Menerapkan filter detail (tahun, bulan, hari, jenis, dll.) pada DataFrame."""
+    df_display = df.copy()
+    df_display['hari'] = df_display['tanggal'].dt.day
+    df_display['bulan'] = df_display['tanggal'].dt.month
+    df_display['tahun'] = df_display['tanggal'].dt.year
+
+    # Baris Filter 1: Waktu
+    col1, col2, col3 = st.columns(3)
+    selected_year = col1.selectbox("Tahun", options=["Semua"] + sorted(df_display['tahun'].unique(), reverse=True))
+    month_map = {i: datetime(2000, i, 1).strftime('%B') for i in range(1, 13)}
+    unique_months = sorted(df_display['bulan'].unique())
+    month_options = {num: month_map[num] for num in unique_months}
+    selected_month_name = col2.selectbox("Bulan", options=["Semua"] + list(month_options.values()))
+    selected_day = col3.selectbox("Tanggal", options=["Semua"] + list(range(1, 32)))
+
+    # Baris Filter 2: Atribut Transaksi
+    col4, col5, col6 = st.columns(3)
+    jenis_filter = col4.multiselect("Jenis", options=sorted(df_display['jenis'].unique()))
+    kategori_filter = col5.multiselect("Kategori", options=sorted(df_display['kategori'].unique()))
+    akun_filter = col6.multiselect("Akun", options=sorted(df_display['akun'].unique()))
+
+    # Logika penerapan filter
+    if selected_year != "Semua": df_display = df_display[df_display['tahun'] == selected_year]
+    if selected_month_name != "Semua":
+        month_num = next(num for num, name in month_map.items() if name == selected_month_name)
+        df_display = df_display[df_display['bulan'] == month_num]
+    if selected_day != "Semua": df_display = df_display[df_display['hari'] == selected_day]
+    if jenis_filter: df_display = df_display[df_display['jenis'].isin(jenis_filter)]
+    if kategori_filter: df_display = df_display[df_display['kategori'].isin(kategori_filter)]
+    if akun_filter: df_display = df_display[df_display['akun'].isin(akun_filter)]
+    
+    return df_display
+
+# --- Helper untuk Halaman Catat Transaksi ---
+def _handle_submission(submitted, form_data):
+    """Memproses logika submit form, termasuk validasi dan penyimpanan data."""
+    if not submitted:
+        return
+
+    # Validasi input nominal
+    jumlah_str = form_data['jumlah_input'].replace('.', '').strip()
+    if not jumlah_str.isdigit() or int(jumlah_str) <= 0:
+        st.error("Input Nominal tidak valid. Harap masukkan angka yang lebih besar dari 0.")
+        return
+
+    jumlah_int = int(jumlah_str)
+    
+    # Memproses transaksi Top Up (dua entri: keluar dan masuk)
+    if form_data['jenis'] == JENIS_PENGELUARAN and form_data['kategori'] == KATEGORI_TOP_UP:
+        if form_data['dari_akun'] == form_data['ke_akun']:
+            st.warning("Akun 'Dari' dan 'Ke' tidak boleh sama.")
             return
+        
+        data_keluar = {
+            "tanggal": form_data['tanggal'].strftime("%Y-%m-%d"), "jenis": JENIS_PENGELUARAN,
+            "kategori": KATEGORI_TOP_UP, "akun": form_data['dari_akun'],
+            COL_NOMINAL: jumlah_int, "deskripsi": form_data['deskripsi'],
+        }
+        data_masuk = {
+            "tanggal": form_data['tanggal'].strftime("%Y-%m-%d"), "jenis": JENIS_PEMASUKAN,
+            "kategori": KATEGORI_TOP_UP, "akun": form_data['ke_akun'],
+            COL_NOMINAL: jumlah_int, "deskripsi": form_data['deskripsi'],
+        }
+        supabase.table("Cashflow").insert([data_keluar, data_masuk]).execute()
+        st.success(f"Top Up {form_data['dari_akun']} → {form_data['ke_akun']} Rp{jumlah_int:,.0f}".replace(',', '.') + " berhasil.")
 
-    # Filter setiap jenis data berdasarkan rentang tanggal yang dipilih
-    df_filtered_pengeluaran = df_pengeluaran[(df_pengeluaran['tanggal'].dt.date >= tgl_awal) & (df_pengeluaran['tanggal'].dt.date <= tgl_akhir)]
-    df_filtered_pemasukan = df_pemasukan[(df_pemasukan['tanggal'].dt.date >= tgl_awal) & (df_pemasukan['tanggal'].dt.date <= tgl_akhir)]
-    df_filtered_semua = df[(df['tanggal'].dt.date >= tgl_awal) & (df['tanggal'].dt.date <= tgl_akhir)]
+    # Memproses transaksi reguler (satu entri)
+    else:
+        data_to_insert = {
+            "tanggal": form_data['tanggal'].strftime("%Y-%m-%d"), "jenis": form_data['jenis'],
+            "kategori": form_data['kategori'], "akun": form_data['akun'],
+            COL_NOMINAL: jumlah_int, "deskripsi": form_data['deskripsi'],
+        }
+        supabase.table("Cashflow").insert(data_to_insert).execute()
+        st.success(f"Transaksi '{form_data['kategori']}' Rp{jumlah_int:,.0f}".replace(',', '.') + " berhasil disimpan.")
+
+    # Membersihkan cache dan memuat ulang halaman untuk menampilkan data terbaru
+    st.cache_data.clear()
+    st.rerun()
+
+# --- Helper untuk Halaman Daftar Transaksi (Edit/Hapus) ---
+def _handle_edit_form_actions(buttons, id_terpilih, form_values):
+    """Menangani aksi update, delete, atau cancel pada form edit."""
+    if buttons['update']:
+        supabase.table("Cashflow").update(form_values).eq("id", id_terpilih).execute()
+        st.success("Transaksi berhasil diupdate!")
+    elif buttons['delete']:
+        supabase.table("Cashflow").delete().eq("id", id_terpilih).execute()
+        st.warning("Transaksi berhasil dihapus!")
+    elif buttons['cancel']:
+        st.info("Aksi dibatalkan.")
+    
+    # Jika ada aksi, bersihkan cache dan muat ulang
+    st.cache_data.clear()
+    st.rerun()
+    
+# ===================================================================================
+# --- FUNGSI-FUNGSI UTAMA HALAMAN ---
+# ===================================================================================
+
+def halaman_dashboard():
+    """Menampilkan dashboard analisis visual untuk data pemasukan dan pengeluaran."""
+    df = get_data()
+    if df.empty:
+        st.info("Belum ada data transaksi untuk ditampilkan.")
+        return
+
+    # 1. Filter Tanggal Utama
+    tgl_awal, tgl_akhir = _create_date_filters(df)
+    if tgl_awal is None:
+        return
 
     st.markdown(f"###### Periode : &nbsp;&nbsp; {tgl_awal.strftime('%d %B %Y')} — {tgl_akhir.strftime('%d %B %Y')}")
 
-    # 4. Layout Utama Dua Kolom untuk Pemasukan dan Pengeluaran
+    # 2. Filter data berdasarkan rentang tanggal dan jenis transaksi (kecuali Top Up)
+    mask_tanggal = (df['tanggal'].dt.date >= tgl_awal) & (df['tanggal'].dt.date <= tgl_akhir)
+    mask_bukan_top_up = df['kategori'] != KATEGORI_TOP_UP
+    
+    df_filtered_pengeluaran = df[mask_tanggal & mask_bukan_top_up & (df['jenis'] == JENIS_PENGELUARAN)]
+    df_filtered_pemasukan = df[mask_tanggal & mask_bukan_top_up & (df['jenis'] == JENIS_PEMASUKAN)]
+    df_filtered_semua = df[mask_tanggal]
+
+    # 3. Tampilkan Ringkasan & Diagram Pie
     col_pengeluaran, col_pemasukan = st.columns(2)
-
-    # --- KOLOM KIRI: PENGELUARAN ---
     with col_pengeluaran:
-        if df_filtered_pengeluaran.empty:
-            st.info("Tidak ada data pengeluaran pada periode ini.")
-        else:
-            total_pengeluaran = df_filtered_pengeluaran[COL_NOMINAL].sum()
-            formatted_total = f"Rp {total_pengeluaran:,.0f}".replace(',', '.')
-            st.metric("Total Pengeluaran", formatted_total)
-
-            pengeluaran_per_kategori = df_filtered_pengeluaran.groupby('kategori')[COL_NOMINAL].sum().sort_values(ascending=False)
-            
-            fig_pie_pengeluaran = px.pie(
-                pengeluaran_per_kategori.reset_index(),
-                values=COL_NOMINAL,
-                names='kategori',
-                hole=0.3
-            )
-            fig_pie_pengeluaran.update_traces(
-                textposition='outside',
-                textinfo='percent+label',
-                textfont_size=12
-            )
-            fig_pie_pengeluaran.update_layout(
-                margin=dict(t=40, b=60, l=60, r=60),
-                showlegend=False, height=400, width=400
-            )
-            st.plotly_chart(fig_pie_pengeluaran, use_container_width=False)
-
-    # --- KOLOM KANAN: PEMASUKAN ---
+        _display_summary_pie_chart(df_filtered_pengeluaran, "Pengeluaran")
     with col_pemasukan:
-        if df_filtered_pemasukan.empty:
-            st.info("Tidak ada data pemasukan pada periode ini.")
-        else:
-            total_pemasukan = df_filtered_pemasukan[COL_NOMINAL].sum()
-            formatted_total = f"Rp {total_pemasukan:,.0f}".replace(',', '.')
-            st.metric("Total Pemasukan", formatted_total)
-
-            pemasukan_per_kategori = df_filtered_pemasukan.groupby('kategori')[COL_NOMINAL].sum().sort_values(ascending=False)
-
-            fig_pie_pemasukan = px.pie(
-                pemasukan_per_kategori.reset_index(),
-                values=COL_NOMINAL,
-                names='kategori',
-                hole=0.3
-            )
-            fig_pie_pemasukan.update_traces(
-                textposition='outside',
-                textinfo='percent+label',
-                textfont_size=12
-            )
-            fig_pie_pemasukan.update_layout(
-                margin=dict(t=40, b=60, l=60, r=60),
-                showlegend=False, height=400, width=400
-            )
-            st.plotly_chart(fig_pie_pemasukan, use_container_width=False)
-            
+        _display_summary_pie_chart(df_filtered_pemasukan, "Pemasukan")
+    
     custom_divider()
 
-    # 5. Bar Chart Pengeluaran (di bawah dua kolom)
+    # 4. Tampilkan Diagram Batang Pengeluaran
     st.markdown("##### Nominal Pengeluaran per Kategori")
     if not df_filtered_pengeluaran.empty:
-        pengeluaran_per_kategori_bar = df_filtered_pengeluaran.groupby('kategori')[COL_NOMINAL].sum().sort_values(ascending=False).reset_index()
+        pengeluaran_per_kategori = df_filtered_pengeluaran.groupby('kategori')[COL_NOMINAL].sum().sort_values(ascending=False).reset_index()
         fig_bar = px.bar(
-            pengeluaran_per_kategori_bar, x='kategori', y=COL_NOMINAL,
+            pengeluaran_per_kategori, x='kategori', y=COL_NOMINAL,
             labels={COL_NOMINAL: 'Jumlah Pengeluaran (Rp)', 'kategori': 'Kategori'},
-            text=COL_NOMINAL,
+            text=COL_NOMINAL
         )
         fig_bar.update_traces(texttemplate='Rp %{text:,.0f}', textposition='outside')
         fig_bar.update_layout(xaxis_tickangle=-45)
@@ -246,434 +309,194 @@ def halaman_dashboard():
 
     custom_divider()
 
-    # 6. Tabel Detail Transaksi (di paling bawah)
+    # 5. Tampilkan Tabel Detail Transaksi dengan Filter
     st.markdown("##### Detail Transaksi")
     if df_filtered_semua.empty:
-        st.warning("Tidak ada transaksi apapun pada rentang waktu yang dipilih.")
+        st.warning("Tidak ada transaksi pada rentang waktu yang dipilih.")
+        return
+        
+    with st.expander("Filter Detail Transaksi"):
+        df_display = _apply_detailed_filters(df_filtered_semua)
+
+    if df_display.empty:
+        st.warning("Tidak ada data yang cocok dengan filter detail Anda.")
     else:
-        with st.expander("Filter Transaksi"):
-            df_display = df_filtered_semua.copy()
-            
-            # --- MULAI BAGIAN FILTER DETAIL ---
-            df_display['hari'] = df_display['tanggal'].dt.day
-            df_display['bulan'] = df_display['tanggal'].dt.month
-            df_display['tahun'] = df_display['tanggal'].dt.year
-
-            # --- Baris Filter 1: Tanggal, Bulan, Tahun ---
-            time_col1, time_col2, time_col3 = st.columns(3)
-            with time_col1:
-                unique_years = sorted(df_display['tahun'].unique(), reverse=True)
-                selected_year = st.selectbox("Tahun", options=["Semua"] + unique_years)
-            with time_col2:
-                month_map = {1: "Januari", 2: "Februari", 3: "Maret", 4: "April", 5: "Mei", 6: "Juni", 7: "Juli", 8: "Agustus", 9: "September", 10: "Oktober", 11: "November", 12: "Desember"}
-                # Opsi bulan hanya dari data yang relevan (setelah filter periode utama)
-                unique_months = sorted(df_display['bulan'].unique())
-                month_options = {num: month_map[num] for num in unique_months}
-                selected_month_name = st.selectbox("Bulan", options=["Semua"] + list(month_options.values()))
-            with time_col3:
-                selected_day = st.selectbox("Tanggal", options=["Semua"] + list(range(1, 32)))
-                
-            # --- Baris Filter 2: Jenis, Kategori, Akun ---
-            filter_col1, filter_col2, filter_col3 = st.columns(3)
-            with filter_col1:
-                jenis_filter = st.multiselect("Jenis", options=sorted(df_display['jenis'].unique()), placeholder="Pilih Jenis")
-            with filter_col2:
-                kategori_filter = st.multiselect("Kategori", options=sorted(df_display['kategori'].unique()), placeholder="Pilih Kategori")
-            with filter_col3:
-                akun_filter = st.multiselect("Akun", options=sorted(df_display['akun'].unique()), placeholder="Pilih Akun")
-
-            # Terapkan semua filter ke df_display
-            if selected_year != "Semua":
-                df_display = df_display[df_display['tahun'] == selected_year]
-            if selected_month_name != "Semua":
-                month_num_to_filter = next(num for num, name in month_map.items() if name == selected_month_name)
-                df_display = df_display[df_display['bulan'] == month_num_to_filter]
-            if selected_day != "Semua":
-                df_display = df_display[df_display['hari'] == selected_day]
-            if jenis_filter: df_display = df_display[df_display['jenis'].isin(jenis_filter)]
-            if kategori_filter: df_display = df_display[df_display['kategori'].isin(kategori_filter)]
-            if akun_filter: df_display = df_display[df_display['akun'].isin(akun_filter)]
-            # --- AKHIR BAGIAN FILTER DETAIL ---
-
-        if df_display.empty:
-            st.warning("Tidak ada data transaksi yang cocok dengan filter detail Anda.")
-        else:
-            df_display_final = df_display.sort_values(by='tanggal', ascending=False)
-            df_display_final.insert(0, 'No.', range(1, len(df_display_final) + 1))
-            df_display_final[COL_NOMINAL] = df_display_final[COL_NOMINAL].apply(lambda x: f"{x:,.0f}".replace(',', '.'))
-            
-            st.dataframe(
-                df_display_final, use_container_width=True, hide_index=True,
-                column_config={
-                    "id": None, "hari": None, "bulan": None, "tahun": None,
-                    "No.": st.column_config.TextColumn("No."),
-                    "tanggal": st.column_config.DateColumn("Tanggal", format="YYYY-MM-DD"),
-                    "jenis": st.column_config.TextColumn("Jenis"),
-                    "kategori": st.column_config.TextColumn("Kategori"),
-                    "akun": st.column_config.TextColumn("Akun"),
-                    COL_NOMINAL: st.column_config.TextColumn(LABEL_NOMINAL),
-                    "deskripsi": st.column_config.TextColumn("Deskripsi"),
-                }
-            )
+        df_display = df_display.sort_values(by='tanggal', ascending=False).reset_index(drop=True)
+        df_display.insert(0, 'No.', range(1, len(df_display) + 1))
+        df_display[COL_NOMINAL] = df_display[COL_NOMINAL].apply(lambda x: f"{x:,.0f}".replace(',', '.'))
+        
+        st.dataframe(
+            df_display, use_container_width=True, hide_index=True,
+            column_config={
+                "id": None, "hari": None, "bulan": None, "tahun": None,
+                "No.": st.column_config.TextColumn("No."),
+                "tanggal": st.column_config.DateColumn("Tanggal", format="YYYY-MM-DD"),
+            }
+        )
 
 def halaman_catat_transaksi():
-    """Menampilkan form untuk mencatat transaksi baru (pemasukan atau pengeluaran)."""
+    """Menampilkan form untuk mencatat transaksi baru."""
+    st.session_state.setdefault("jenis", JENIS_PEMASUKAN)
+    st.session_state.setdefault("kategori", KATEGORI_PEMASUKAN[0])
+    st.session_state.setdefault("akun", PILIHAN_AKUN[0])
+    st.session_state.setdefault("tanggal", datetime.now().date())
+    
+    # Pilihan Jenis & Kategori di luar form agar dinamis
+    col1, col2 = st.columns(2)
+    jenis = col1.selectbox("Jenis Transaksi", [JENIS_PEMASUKAN, JENIS_PENGELUARAN], key="jenis")
+    
+    kategori_options = KATEGORI_PEMASUKAN if jenis == JENIS_PEMASUKAN else KATEGORI_PENGELUARAN
+    if st.session_state.kategori not in kategori_options:
+        st.session_state.kategori = kategori_options[0]
+        
+    kategori = col2.selectbox("Kategori", kategori_options, key="kategori")
 
-    # --- 1. Mapping untuk selectbox agar tidak auto-popup keyboard di mobile
-    mapping_jenis = {
-        JENIS_PEMASUKAN: JENIS_PEMASUKAN,
-        JENIS_PENGELUARAN: JENIS_PENGELUARAN
-    }
-    mapping_kategori_pemasukan = {k: k for k in KATEGORI_PEMASUKAN}
-    mapping_kategori_pengeluaran = {k: k for k in KATEGORI_PENGELUARAN}
-    mapping_akun = {a: a for a in PILIHAN_AKUN}
-
-    # --- 2. Inisialisasi state jika belum ada
-    if "jenis" not in st.session_state:
-        st.session_state.jenis = JENIS_PEMASUKAN
-    if "kategori" not in st.session_state:
-        st.session_state.kategori = KATEGORI_PEMASUKAN[0]
-    if "akun" not in st.session_state:
-        st.session_state.akun = PILIHAN_AKUN[0]
-    if "tanggal" not in st.session_state:
-        st.session_state.tanggal = datetime.now().date()
-
-    # --- 3. Pilihan Jenis & Kategori di luar form
-    kir, kan = st.columns(2)
-    with kir:
-        jenis = st.selectbox(
-            "Jenis Transaksi",
-            options=list(mapping_jenis.keys()),
-            index=list(mapping_jenis.keys()).index(st.session_state.jenis),
-            format_func=lambda x: mapping_jenis[x],
-            key="jenis"
-        )
-
-    with kan:
-        kategori_mapping = mapping_kategori_pemasukan if jenis == JENIS_PEMASUKAN else mapping_kategori_pengeluaran
-        kategori = st.selectbox(
-            "Kategori Pemasukan" if jenis == JENIS_PEMASUKAN else "Kategori Pengeluaran", label_visibility="visible",
-            options=list(kategori_mapping.keys()),
-            index=list(kategori_mapping.keys()).index(st.session_state.kategori) 
-                  if st.session_state.kategori in kategori_mapping else 0,
-            format_func=lambda x: kategori_mapping[x],
-            key="kategori"
-        )
-
-    # --- 4. Form
     with st.form("form_transaksi", clear_on_submit=True):
-        tanggal = st.date_input("Tanggal", value=st.session_state.tanggal, key="tanggal", label_visibility="visible")
-
-        # Kalau Keluar + Top Up → field khusus
-        if jenis == JENIS_PENGELUARAN and kategori == "Top Up":
-            dari_akun = st.selectbox("Dari Akun", options=list(mapping_akun.keys()), format_func=lambda x: mapping_akun[x], key="dari_akun")
-            ke_akun = st.selectbox("Ke Akun", options=list(mapping_akun.keys()), format_func=lambda x: mapping_akun[x], key="ke_akun")
-            akun = None
+        tanggal = st.date_input("Tanggal", key="tanggal")
+        
+        # Logika kondisional untuk menampilkan field yang relevan
+        if jenis == JENIS_PENGELUARAN and kategori == KATEGORI_TOP_UP:
+            dari_akun = st.selectbox("Dari Akun", PILIHAN_AKUN, key="dari_akun")
+            ke_akun = st.selectbox("Ke Akun", PILIHAN_AKUN, key="ke_akun")
+            akun = None # Tidak digunakan untuk Top Up
         else:
-            akun = st.selectbox("Akun", options=list(mapping_akun.keys()), index=list(mapping_akun.keys()).index(st.session_state.akun), format_func=lambda x: mapping_akun[x], key="akun")
+            akun = st.selectbox("Akun", PILIHAN_AKUN, key="akun")
             dari_akun, ke_akun = None, None
 
         jumlah_input = st.text_input(LABEL_NOMINAL, placeholder="Contoh: 50000 atau 50.000 sama aja")
         deskripsi = st.text_area("Deskripsi")
+        
+        # Tombol form
+        _, col_submit = st.columns([4, 1])
+        submitted = col_submit.form_submit_button("Simpan", use_container_width=True)
 
-        col1, col2 = st.columns([1,3])
-        with col1:
-            st.form_submit_button("Reset", use_container_width=True)
-        with col2:
-            submitted = st.form_submit_button("Simpan Transaksi", use_container_width=True)
+        # Kumpulkan semua data dari form untuk diproses
+        form_data = {
+            "jenis": jenis, "kategori": kategori, "tanggal": tanggal,
+            "akun": akun, "dari_akun": dari_akun, "ke_akun": ke_akun,
+            "jumlah_input": jumlah_input, "deskripsi": deskripsi
+        }
 
-        # --- 5. Logika saat submit
-        if submitted:
-            jumlah_str = jumlah_input.replace('.', '').strip()
-            if not jumlah_str.isdigit():
-                st.error("Input Nominal invalid. Harap masukkan angka saja.")
-            elif int(jumlah_str) <= 0:
-                st.warning("Jumlah harus lebih besar dari 0.")
-            else:
-                jumlah_int = int(jumlah_str)
+    # Proses submit di luar form untuk menjaga state
+    _handle_submission(submitted, form_data)
 
-                if jenis == JENIS_PENGELUARAN and kategori == "Top Up":
-                    data_keluar = {
-                        "tanggal": tanggal.strftime("%Y-%m-%d"),
-                        "jenis": JENIS_PENGELUARAN,
-                        "kategori": "Top Up",
-                        "akun": dari_akun,
-                        COL_NOMINAL: jumlah_int,
-                        "deskripsi": deskripsi,
-                    }
-                    data_masuk = {
-                        "tanggal": tanggal.strftime("%Y-%m-%d"),
-                        "jenis": JENIS_PEMASUKAN,
-                        "kategori": "Top Up",
-                        "akun": ke_akun,
-                        COL_NOMINAL: jumlah_int,
-                        "deskripsi": deskripsi,
-                    }
-                    supabase.table("Cashflow").insert([data_keluar, data_masuk]).execute()
-                    st.success(f"Transaksi Top Up {dari_akun} → {ke_akun} Rp{jumlah_int:,.0f}".replace(',', '.') + " berhasil disimpan 👌")
-                    st.cache_data.clear()
-                    st.rerun()
-                else:
-                    data_to_insert = {
-                        "tanggal": tanggal.strftime("%Y-%m-%d"),
-                        "jenis": jenis,
-                        "kategori": kategori,
-                        "akun": akun,
-                        COL_NOMINAL: jumlah_int,
-                        "deskripsi": deskripsi,
-                    }
-                    supabase.table("Cashflow").insert(data_to_insert).execute()
-                    st.success(f"Transaksi '{kategori}' sebesar Rp{jumlah_int:,.0f}".replace(',', '.') + " berhasil disimpan 👌")
-                    st.cache_data.clear()
-                    st.rerun()
 
 def halaman_lihat_saldo():
-    """ Menghitung dan menampilkan saldo kumulatif untuk setiap akun hingga tanggal yang dipilih. """
+    """Menghitung dan menampilkan saldo kumulatif untuk setiap akun."""
+    col1, col2 = st.columns(2)
+    df = get_data()
     
-    kol1, kol2 = st.columns(2)
+    tanggal_pilihan = col1.date_input("Lihat Saldo per Tanggal", value=datetime.now().date())
 
-    # 1. Mengambil data dari Supabase.
-    df = get_data()  # Mengambil data dari fungsi yang sudah didefinisikan sebelumnya.
-    
-    with kol1:
-        # Widget untuk memilih tanggal, dengan nilai default hari ini.
-        tanggal_pilihan = st.date_input("Lihat Saldo per Tanggal", value=datetime.now().date())
-
-    # 2. Memproses dan membersihkan data.
     saldo_akun = {}
     if not df.empty:
-        # 3. Filter data secara kumulatif
         df_per_tanggal = df[df['tanggal'].dt.date <= tanggal_pilihan].copy()
 
-        # 4. Menghitung saldo jika ada data pada rentang tanggal tersebut.
         if not df_per_tanggal.empty:
-            # Agregasi total pemasukan & pengeluaran per akun.
             pemasukan = df_per_tanggal[df_per_tanggal['jenis'] == JENIS_PEMASUKAN].groupby('akun')[COL_NOMINAL].sum()
             pengeluaran = df_per_tanggal[df_per_tanggal['jenis'] == JENIS_PENGELUARAN].groupby('akun')[COL_NOMINAL].sum()
             
-            # Menggabungkan data dan menghitung saldo akhir.
             saldo_df = pd.concat([pemasukan, pengeluaran], axis=1).fillna(0)
             saldo_df.columns = ['pemasukan', 'pengeluaran']
             saldo_df['saldo'] = saldo_df['pemasukan'] - saldo_df['pengeluaran']
             saldo_akun = saldo_df['saldo'].to_dict()
     
-    with kol2:
-        # 5. Menampilkan total saldo dan daftar saldo per akun.
-        total_saldo_keseluruhan = sum(saldo_akun.values())
-        formatted_total = f"Rp {total_saldo_keseluruhan:,.0f}".replace(',', '.')
-        if total_saldo_keseluruhan < 0:
-            formatted_total = f"-Rp {abs(total_saldo_keseluruhan):,.0f}".replace(',', '.')
-
-        st.metric(label=f"Total Saldo per {tanggal_pilihan.strftime('%d %B %Y')}", value=formatted_total)
-
-    # Menambahkan CSS custom untuk styling tampilan daftar akun.
-    st.markdown("""
-    <style>
-    .list-logo { height: 40px; width: auto; object-fit: contain; border-radius: 4px; }
-    .account-name { font-size: 20px; font-weight: 500; line-height: 1; }
-    .account-balance { font-size: 24px; font-weight: 600; }
-    .account-balance-negative { color: #ff4b4b; }
-    </style>
-    """, unsafe_allow_html=True)
+    total_saldo = sum(saldo_akun.values())
+    formatted_total = f"Rp {total_saldo:,.0f}".replace(',', '.')
+    if total_saldo < 0:
+        formatted_total = f"-Rp {abs(total_saldo):,.0f}".replace(',', '.')
+    col2.metric(label=f"Total Saldo per {tanggal_pilihan.strftime('%d %B %Y')}", value=formatted_total)
 
     custom_divider()
 
-    # Mengurutkan nama akun berdasarkan saldonya (dari terbesar ke terkecil).
-    # Fungsi `saldo_akun.get(akun, 0)` digunakan untuk menangani akun yang belum memiliki transaksi (saldo dianggap 0).
+    # Menampilkan daftar saldo per akun, diurutkan berdasarkan saldo terbesar
     akun_terurut = sorted(SEMUA_AKUN_DENGAN_LOGO.keys(), key=lambda akun: saldo_akun.get(akun, 0), reverse=True)
 
-    # Loop untuk menampilkan setiap akun, logo, dan saldonya berdasarkan urutan yang sudah dibuat.
     for akun_name in akun_terurut:
-        logo_url = SEMUA_AKUN_DENGAN_LOGO[akun_name]
+        logo_url = SEMUA_AKUN_DENGAN_LOGO.get(akun_name, "")
         saldo = saldo_akun.get(akun_name, 0)
+        formatted_saldo = f"Rp {saldo:,.0f}".replace(',', '.')
+        if saldo < 0:
+            formatted_saldo = f"-Rp {abs(saldo):,.0f}".replace(',', '.')
         
-        col1, col2 = st.columns([3, 2])
-        # Kolom kiri: Logo dan nama akun.
-        with col1:
-            logo_col, name_col = st.columns([1, 4])
-            with logo_col:
-                st.markdown(f'<img src="{logo_url}" class="list-logo">', unsafe_allow_html=True)
-            with name_col:
-                st.markdown(f'<span class="account-name">{akun_name}</span>', unsafe_allow_html=True)
-        # Kolom kanan: Saldo.
-        with col2:
-            formatted_saldo = f"Rp {saldo:,.0f}".replace(',', '.')
-            if saldo < 0:
-                formatted_saldo = f"-Rp {abs(saldo):,.0f}".replace(',', '.')
-            color_class = "account-balance-negative" if saldo < 0 else ""
-            st.markdown(f'''
-                <div style="text-align: right;">
-                    <span class="account-balance {color_class}">{formatted_saldo}</span>
-                </div>
-            ''', unsafe_allow_html=True)
-        
-        custom_divider()
+        col1, col2 = st.columns([1, 1])
+        col1.markdown(f'<h5><img src="{logo_url}" height="30">&nbsp;&nbsp;{akun_name}</h5>', unsafe_allow_html=True)
+        color = "red" if saldo < 0 else "inherit"
+        col2.markdown(f'<h5 style="text-align: right; color: {color};">{formatted_saldo}</h5>', unsafe_allow_html=True)
+        custom_divider(margin_top=15, margin_bottom=15)
 
 
 def tampilkan_form_edit_hapus(df_filtered):
-    """
-    Menampilkan expander berisi form untuk mengedit atau menghapus transaksi terpilih.
-    Fungsi ini dipanggil dari dalam halaman 'Daftar Transaksi'.
-    """
-    with st.expander("✏️ Edit / Hapus Transaksi", expanded=False):
-        # 1. Membuat daftar pilihan transaksi dari data yang sudah difilter.
-        pilihan_transaksi = [
-            f"{row['id']} -- ({row['tanggal'].strftime('%Y-%m-%d')}) -- {row['kategori']} (Rp {row[COL_NOMINAL]:,}) -- {row['deskripsi']}".replace(',', '.')
-            for _, row in df_filtered.iterrows()
-        ]
-        pilihan_transaksi.insert(0, "Pilih transaksi untuk diedit / dihapus")
+    """Menampilkan expander berisi form untuk mengedit atau menghapus transaksi."""
+    with st.expander("✏️ Edit / Hapus Transaksi"):
+        pilihan = [f"{row['id']} -- {row['tanggal'].strftime('%d/%m')} -- {row['kategori']} -- Rp {row[COL_NOMINAL]:,.0f} -- {row['deskripsi']}".replace(',', '.') for _, row in df_filtered.iterrows()]
+        transaksi_terpilih_str = st.selectbox("Pilih Transaksi", ["Pilih..."] + pilihan)
 
-        # 2. Dropdown untuk memilih transaksi.
-        transaksi_terpilih = st.selectbox("Pilih Data Transaksi", pilihan_transaksi)
+        if transaksi_terpilih_str == "Pilih...":
+            return
 
-        # 3. Jika sebuah transaksi dipilih, tampilkan form edit/hapus.
-        if transaksi_terpilih != "Pilih transaksi untuk diedit / dihapus":
-            id_terpilih = int(transaksi_terpilih.split(" -- ")[0])
-            data_lama = df_filtered[df_filtered['id'] == id_terpilih].iloc[0]
+        id_terpilih = int(transaksi_terpilih_str.split(" -- ")[0])
+        data_lama = df_filtered[df_filtered['id'] == id_terpilih].iloc[0]
 
-            with st.form("form_edit"):
-                st.info(f"Anda sedang mengedit transaksi dengan ID: {id_terpilih}")
+        with st.form("form_edit"):
+            st.info(f"Mengedit Transaksi ID: {id_terpilih}")
+            
+            tanggal_edit = st.date_input("Tanggal", value=data_lama['tanggal'].date())
+            jenis_edit = st.selectbox("Jenis", [JENIS_PEMASUKAN, JENIS_PENGELUARAN], index=[JENIS_PEMASUKAN, JENIS_PENGELUARAN].index(data_lama['jenis']))
+            
+            # Logika pemilihan kategori yang disederhanakan
+            kategori_options = KATEGORI_PEMASUKAN if jenis_edit == JENIS_PEMASUKAN else KATEGORI_PENGELUARAN
+            kategori_index = kategori_options.index(data_lama['kategori']) if data_lama['kategori'] in kategori_options else 0
+            kategori_edit = st.selectbox("Kategori", kategori_options, index=kategori_index)
+            
+            akun_edit = st.selectbox("Akun", PILIHAN_AKUN, index=PILIHAN_AKUN.index(data_lama['akun']))
+            nominal_edit = st.number_input(LABEL_NOMINAL, value=int(data_lama[COL_NOMINAL]), step=1000)
+            deskripsi_edit = st.text_area("Deskripsi", value=data_lama['deskripsi'])
 
-                # Input fields diisi dengan data lama sebagai nilai default.
-                tanggal_edit = st.date_input("Tanggal", value=pd.to_datetime(data_lama['tanggal']))
-                jenis_edit = st.selectbox("Jenis Transaksi", [JENIS_PENGELUARAN, JENIS_PEMASUKAN], index=[JENIS_PENGELUARAN, JENIS_PEMASUKAN].index(data_lama['jenis']))
-                
-                # Menyesuaikan pilihan kategori berdasarkan jenis transaksi.
-                if jenis_edit == JENIS_PEMASUKAN:
-                    kategori_index = KATEGORI_PEMASUKAN.index(data_lama['kategori']) if data_lama['kategori'] in KATEGORI_PEMASUKAN else 0
-                    kategori_edit = st.selectbox("Kategori", KATEGORI_PEMASUKAN, index=kategori_index)
-                else:
-                    kategori_index = KATEGORI_PENGELUARAN.index(data_lama['kategori']) if data_lama['kategori'] in KATEGORI_PENGELUARAN else 0
-                    kategori_edit = st.selectbox("Kategori", KATEGORI_PENGELUARAN, index=kategori_index)
+            # Tombol Aksi
+            col1, col2, col3 = st.columns(3)
+            update_button = col1.form_submit_button("Update", use_container_width=True)
+            cancel_button = col2.form_submit_button("Batal", use_container_width=True)
+            delete_button = col3.form_submit_button("Hapus", use_container_width=True)
 
-                akun_edit = st.selectbox("Akun", PILIHAN_AKUN, index=PILIHAN_AKUN.index(data_lama['akun']))
-                nominal_edit = st.number_input(LABEL_NOMINAL, value=int(data_lama[COL_NOMINAL]), step=1000)
-                deskripsi_edit = st.text_area("Deskripsi", value=data_lama['deskripsi'])
+            # Pengumpulan data dan status tombol untuk diproses
+            form_values = {
+                "tanggal": tanggal_edit.strftime("%Y-%m-%d"), "jenis": jenis_edit, "kategori": kategori_edit,
+                "akun": akun_edit, COL_NOMINAL: nominal_edit, "deskripsi": deskripsi_edit
+            }
+            button_states = {"update": update_button, "delete": delete_button, "cancel": cancel_button}
 
-                # Tombol untuk Hapus dan Update.
-                delete_col, update_col, cancel_col = st.columns(3)
-                with delete_col:
-                    delete_button = st.form_submit_button("Hapus Data Transaksi", use_container_width=True)
-                with update_col:
-                    update_button = st.form_submit_button("Update Data Transaksi", use_container_width=True)
-                with cancel_col:
-                    cancel_button = st.form_submit_button("Batal", use_container_width=True)
-
-                # Logika saat tombol Update ditekan.
-                if update_button:
-                    data_baru = {
-                        "tanggal": tanggal_edit.strftime("%Y-%m-%d"), "jenis": jenis_edit, "kategori": kategori_edit,
-                        "akun": akun_edit, COL_NOMINAL: nominal_edit, "deskripsi": deskripsi_edit
-                    }
-                    supabase.table("Cashflow").update(data_baru).eq("id", id_terpilih).execute()
-                    st.success("Transaksi berhasil diupdate!")
-                    st.cache_data.clear()
-                    st.session_state.force_close_expander = True
-                    st.rerun() # Muat ulang halaman untuk menampilkan data terbaru.
-
-                # Logika saat tombol Hapus ditekan.
-                if delete_button:
-                    supabase.table("Cashflow").delete().eq("id", id_terpilih).execute()
-                    st.warning("Transaksi berhasil dihapus!")
-                    st.cache_data.clear()
-                    st.session_state.force_close_expander = True
-                    st.rerun() # Muat ulang halaman.
-
-                if cancel_button:
-                    st.info("Edit transaksi dibatalkan.")
-                    st.cache_data.clear()
-                    st.session_state.force_close_expander = True
-                    st.rerun()
+            if any(button_states.values()):
+                _handle_edit_form_actions(button_states, id_terpilih, form_values)
 
 
 def halaman_daftar_transaksi():
-    """Menampilkan semua data transaksi dalam bentuk tabel dengan opsi filter yang lengkap."""
-
-    # 1. Mengambil data dari Supabase, diurutkan berdasarkan tanggal terbaru.
-    df_all = get_data() # Panggil fungsi terpusat
-    
+    """Menampilkan semua data transaksi dalam tabel dengan opsi filter."""
+    df_all = get_data()
     if df_all.empty:
         st.info("Belum ada data transaksi.")
-        return    
+        return
     
-    # 2. Memproses dan membersihkan data.
-    df = df_all.copy()
-    df['jenis'] = df['jenis'].str.strip()
-    df['kategori'] = df['kategori'].str.strip()
-    df['akun'] = df['akun'].str.strip()
-    df['tanggal'] = pd.to_datetime(df['tanggal'])
-    df[COL_NOMINAL] = pd.to_numeric(df[COL_NOMINAL])
-
-    # 3. Expander untuk menampung widget filter.
     with st.expander("🔍 Filter Transaksi"):
-        df['hari'] = df['tanggal'].dt.day
-        df['bulan'] = df['tanggal'].dt.month
-        df['tahun'] = df['tanggal'].dt.year
-        
-        time_col1, time_col2, time_col3 = st.columns(3)
-        with time_col1:
-            unique_years = sorted(df['tahun'].unique(), reverse=True)
-            selected_year = st.selectbox("Tahun", options=["Semua"] + unique_years)
-        with time_col2:
-            month_map = {
-                1: "Januari", 2: "Februari", 3: "Maret", 4: "April", 5: "Mei", 6: "Juni",
-                7: "Juli", 8: "Agustus", 9: "September", 10: "Oktober", 11: "November", 12: "Desember"
-            }
-            unique_months = sorted(df['bulan'].unique())
-            month_options = {num: month_map[num] for num in unique_months}
-            selected_month_name = st.selectbox("Bulan", options=["Semua"] + list(month_options.values()))
-        with time_col3:
-            selected_day = st.selectbox("Tanggal", options=["Semua"] + list(range(1, 32)))
-            
-        filter_col1, filter_col2, filter_col3 = st.columns(3)
-        with filter_col1:
-            jenis_filter = st.multiselect("Jenis", options=df['jenis'].unique(), placeholder="Pilih Jenis")
-        with filter_col2:
-            kategori_filter = st.multiselect("Kategori", options=sorted(df['kategori'].unique()), placeholder="Pilih Kategori")
-        with filter_col3:
-            akun_filter = st.multiselect("Akun", options=df['akun'].unique(), placeholder="Pilih Akun")
+        df_filtered = _apply_detailed_filters(df_all)
 
-    # 4. Menerapkan semua filter ke DataFrame.
-    df_filtered = df.copy()
-    if selected_year != "Semua":
-        df_filtered = df_filtered[df_filtered['tahun'] == selected_year]
-    if selected_month_name != "Semua":
-        month_num_to_filter = next(num for num, name in month_map.items() if name == selected_month_name)
-        df_filtered = df_filtered[df_filtered['bulan'] == month_num_to_filter]
-    if selected_day != "Semua":
-        df_filtered = df_filtered[df_filtered['hari'] == selected_day]
-    if jenis_filter:
-        df_filtered = df_filtered[df_filtered['jenis'].isin(jenis_filter)]
-    if kategori_filter:
-        df_filtered = df_filtered[df_filtered['kategori'].isin(kategori_filter)]
-    if akun_filter:
-        df_filtered = df_filtered[df_filtered['akun'].isin(akun_filter)]
-
-    # 5. Menampilkan hasil data yang telah difilter.
     st.subheader("Data Transaksi")
     if df_filtered.empty:
         st.warning("Tidak ada data yang cocok dengan filter Anda.")
         return
     
-    df_display = df_filtered.sort_values(by='id', ascending=False)
-    df_display[COL_NOMINAL] = df_display[COL_NOMINAL].apply(lambda x: f"{x:,.0f}".replace(',', '.'))
+    df_display = df_filtered.sort_values(by='id', ascending=False).reset_index(drop=True)
     df_display.insert(0, 'No.', range(1, len(df_display) + 1))
+    df_display[COL_NOMINAL] = df_display[COL_NOMINAL].apply(lambda x: f"{x:,.0f}".replace(',', '.'))
     
-    st.dataframe(df_display, use_container_width=True, hide_index=True,
-        column_config={
-            "hari": None, "bulan": None, "tahun": None,
-            "id": st.column_config.TextColumn("ID"),
-            "No.": st.column_config.TextColumn("No."),
-            "tanggal": st.column_config.DateColumn("Tanggal", format="YYYY-MM-DD"),
-            "jenis": st.column_config.TextColumn("Jenis"),
-            "kategori": st.column_config.TextColumn("Kategori"),
-            "akun": st.column_config.TextColumn("Akun"),
-            COL_NOMINAL: st.column_config.TextColumn(LABEL_NOMINAL),
-            "deskripsi": st.column_config.TextColumn("Deskripsi"),
-        }
-    )
+    st.dataframe(df_display, use_container_width=True, hide_index=True, column_config={
+        "id": st.column_config.TextColumn("ID"),
+        "No.": st.column_config.TextColumn("No."),
+        "tanggal": st.column_config.DateColumn("Tanggal", format="YYYY-MM-DD"),
+        "hari": None, "bulan": None, "tahun": None,
+    })
     
-    # Memanggil fungsi untuk menampilkan form edit/hapus di bawah tabel.
+    # Fungsi form edit/hapus dipanggil dengan data yang sudah difilter
     tampilkan_form_edit_hapus(df_filtered)
 
 # ===================================================================================
@@ -681,70 +504,43 @@ def halaman_daftar_transaksi():
 # ===================================================================================
 def main():
     """Fungsi utama yang menjalankan aplikasi dan mengatur navigasi antar halaman."""
-    st.markdown(
-    """
+    st.markdown("""
     <style>
-    /* Import font dari Google Fonts */
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600&family=Dancing+Script:wght@600&display=swap');
-
-    .judul-atas {
-        text-align: center !important;
-        font-size: 12px !important;
-        color: #4a4a4a !important;
-        font-family: 'Poppins', sans-serif !important;
-        margin-bottom: 0px !important;
-    }
-
-    .judul-bawah {
-        text-align: center !important;
-        font-size: 36px !important;
-        color: #e5e5e5 !important;
-        font-family: 'Dancing Script', cursive !important;
-        margin-top: 0px !important;
-        margin-bottom: 25px !important;
-    }
+    .judul-atas { text-align: center; font-size: 12px; color: #4a4a4a; font-family: 'Poppins', sans-serif; margin-bottom: 0px; }
+    .judul-bawah { text-align: center; font-size: 36px; color: #e5e5e5; font-family: 'Dancing Script', cursive; margin-top: 0px; margin-bottom: 25px; }
     </style>
-
     <div class="judul-atas">Langkah Awal Menuju</div>
     <div class="judul-bawah">✨ <em>Financial Freedom</em> ✨</div>
-    """,
-    unsafe_allow_html=True
-    )
- 
+    """, unsafe_allow_html=True)
+
+    # Menu navigasi utama
+    menu_options = {
+        PAGE_DASHBOARD: "📊 Dashboard",
+        PAGE_LIHAT_SALDO: "💰 Saldo Akun",
+        PAGE_CATAT_TRANSAKSI: "📝 Catat Transaksi",
+        PAGE_DAFTAR_TRANSAKSI: "🧾 Daftar Transaksi"
+    }
     menu = st.selectbox(
         "📌 Menu",
-        [PAGE_DASHBOARD, PAGE_LIHAT_SALDO, PAGE_CATAT_TRANSAKSI, PAGE_DAFTAR_TRANSAKSI],
-        format_func=lambda x: {
-            PAGE_DASHBOARD: "📊 Dashboard",
-            PAGE_LIHAT_SALDO: "💰 Saldo Akun",
-            PAGE_CATAT_TRANSAKSI: "📝 Catat Transaksi",
-            PAGE_DAFTAR_TRANSAKSI: "🧾 Daftar Transaksi"
-        }[x],
+        options=list(menu_options.keys()),
+        format_func=lambda key: menu_options[key],
     )
-
-    # Simpan ke session_state
-    st.session_state.page = menu
-
+    
     custom_divider()
 
-    # Menggunakan st.session_state untuk menyimpan halaman yang sedang aktif.
-    # Ini adalah cara sederhana untuk membuat aplikasi multi-halaman di Streamlit.
-    if "page" not in st.session_state:
-        st.session_state.page = PAGE_DASHBOARD
-
-    # Menampilkan halaman yang sesuai berdasarkan session_state.
-    if st.session_state.page == PAGE_DASHBOARD:
+    # Router untuk menampilkan halaman yang sesuai
+    if menu == PAGE_DASHBOARD:
         halaman_dashboard()
-    elif st.session_state.page == PAGE_CATAT_TRANSAKSI:
+    elif menu == PAGE_CATAT_TRANSAKSI:
         halaman_catat_transaksi()
-    elif st.session_state.page == PAGE_LIHAT_SALDO:
+    elif menu == PAGE_LIHAT_SALDO:
         halaman_lihat_saldo()
-    elif st.session_state.page == PAGE_DAFTAR_TRANSAKSI:
+    elif menu == PAGE_DAFTAR_TRANSAKSI:
         halaman_daftar_transaksi()
 
 # ===================================================================================
 # --- TITIK MASUK EKSEKUSI PROGRAM ---
 # ===================================================================================
-# Blok ini memastikan fungsi main() hanya dijalankan saat script dieksekusi langsung.
 if __name__ == "__main__":
     main()
