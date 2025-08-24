@@ -124,28 +124,7 @@ def get_data():
 # ===================================================================================
 
 def halaman_dashboard():
-    """
-    Menampilkan dashboard analisis visual untuk data pemasukan dan pengeluaran.
-    """
-    # st.markdown(
-    #     """
-    #     <style>
-    #     .judul-custom {
-    #         text-align: center !important;
-    #         font-size: 24px !important;
-    #         color: #e5e5e5 !important;
-    #         font-family: "Courier New", monospace !important;
-    #         font-weight: bold !important;
-    #         margin-top: 0px !important;
-    #         margin-bottom: 14px !important;
-    #     }
-    #     </style>
-    #     <div class="judul-custom">
-    #         📊 Dashboard
-    #     </div>
-    #     """,
-    #     unsafe_allow_html=True
-    # )
+    """Menampilkan dashboard analisis visual untuk data pemasukan dan pengeluaran."""
     # 1. Mengambil dan memproses data dasar
     df = get_data() 
     
@@ -340,48 +319,61 @@ def halaman_dashboard():
 def halaman_catat_transaksi():
     """Menampilkan form untuk mencatat transaksi baru (pemasukan atau pengeluaran)."""
 
-    # st.markdown(
-    #     """
-    #     <style>
-    #     .judul-custom {
-    #         text-align: center !important;
-    #         font-size: 24px !important;
-    #         color: #e5e5e5 !important;
-    #         font-family: "Courier New", monospace !important;
-    #         font-weight: bold !important;
-    #         margin-top: 0px !important;
-    #         margin-bottom: 14px !important;
-    #     }
-    #     </style>
-    #     <div class="judul-custom">
-    #         📝 Catat Transaksi Baru
-    #     </div>
-    #     """,
-    #     unsafe_allow_html=True
-    # )
+    # --- 1. Mapping untuk selectbox agar tidak auto-popup keyboard di mobile
+    mapping_jenis = {
+        JENIS_PEMASUKAN: JENIS_PEMASUKAN,
+        JENIS_PENGELUARAN: JENIS_PENGELUARAN
+    }
+    mapping_kategori_pemasukan = {k: k for k in KATEGORI_PEMASUKAN}
+    mapping_kategori_pengeluaran = {k: k for k in KATEGORI_PENGELUARAN}
+    mapping_akun = {a: a for a in PILIHAN_AKUN}
+
+    # --- 2. Inisialisasi state jika belum ada
+    if "jenis" not in st.session_state:
+        st.session_state.jenis = JENIS_PEMASUKAN
+    if "kategori" not in st.session_state:
+        st.session_state.kategori = KATEGORI_PEMASUKAN[0]
+    if "akun" not in st.session_state:
+        st.session_state.akun = PILIHAN_AKUN[0]
+    if "tanggal" not in st.session_state:
+        st.session_state.tanggal = datetime.now().date()
+
+    # --- 3. Pilihan Jenis & Kategori di luar form
     kir, kan = st.columns(2)
     with kir:
-        jenis = st.selectbox("Jenis Transaksi", [JENIS_PEMASUKAN, JENIS_PENGELUARAN])
+        jenis = st.selectbox(
+            "Jenis Transaksi",
+            options=list(mapping_jenis.keys()),
+            index=list(mapping_jenis.keys()).index(st.session_state.jenis),
+            format_func=lambda x: mapping_jenis[x],
+            key="jenis"
+        )
+
     with kan:
+        kategori_mapping = mapping_kategori_pemasukan if jenis == JENIS_PEMASUKAN else mapping_kategori_pengeluaran
         kategori = st.selectbox(
             "Kategori Pemasukan" if jenis == JENIS_PEMASUKAN else "Kategori Pengeluaran",
-            KATEGORI_PEMASUKAN if jenis == JENIS_PEMASUKAN else KATEGORI_PENGELUARAN
-            )
+            options=list(kategori_mapping.keys()),
+            index=list(kategori_mapping.keys()).index(st.session_state.kategori) 
+                  if st.session_state.kategori in kategori_mapping else 0,
+            format_func=lambda x: kategori_mapping[x],
+            key="kategori"
+        )
 
-    # Form dimulai setelah pilihan jenis & kategori fix
+    # --- 4. Form
     with st.form("form_transaksi", clear_on_submit=True):
-        tanggal = st.date_input("Tanggal")
+        tanggal = st.date_input("Tanggal", value=st.session_state.tanggal, key="tanggal")
 
         # Kalau Keluar + Top Up → field khusus
         if jenis == JENIS_PENGELUARAN and kategori == "Top Up":
-            dari_akun = st.selectbox("Dari Akun", PILIHAN_AKUN)
-            ke_akun = st.selectbox("Ke Akun", PILIHAN_AKUN)
+            dari_akun = st.selectbox("Dari Akun", options=list(mapping_akun.keys()), format_func=lambda x: mapping_akun[x], key="dari_akun")
+            ke_akun = st.selectbox("Ke Akun", options=list(mapping_akun.keys()), format_func=lambda x: mapping_akun[x], key="ke_akun")
             akun = None
         else:
-            akun = st.selectbox("Akun", PILIHAN_AKUN)
+            akun = st.selectbox("Akun", options=list(mapping_akun.keys()), index=list(mapping_akun.keys()).index(st.session_state.akun), format_func=lambda x: mapping_akun[x], key="akun")
             dari_akun, ke_akun = None, None
 
-        jumlah_input = st.text_input(LABEL_NOMINAL, placeholder="Contoh: 50000")
+        jumlah_input = st.text_input(LABEL_NOMINAL, placeholder="Contoh: 50000 atau 50.000 sama aja")
         deskripsi = st.text_area("Deskripsi")
 
         col1, col2 = st.columns([1,3])
@@ -390,7 +382,7 @@ def halaman_catat_transaksi():
         with col2:
             submitted = st.form_submit_button("Simpan Transaksi", use_container_width=True)
 
-        # Logika yang dijalankan saat form di-submit.
+        # --- 5. Logika saat submit
         if submitted:
             jumlah_str = jumlah_input.replace('.', '').strip()
             if not jumlah_str.isdigit():
@@ -401,7 +393,6 @@ def halaman_catat_transaksi():
                 jumlah_int = int(jumlah_str)
 
                 if jenis == JENIS_PENGELUARAN and kategori == "Top Up":
-                    # Baris pertama: keluar dari akun asal
                     data_keluar = {
                         "tanggal": tanggal.strftime("%Y-%m-%d"),
                         "jenis": JENIS_PENGELUARAN,
@@ -410,7 +401,6 @@ def halaman_catat_transaksi():
                         COL_NOMINAL: jumlah_int,
                         "deskripsi": deskripsi,
                     }
-                    # Baris kedua: masuk ke akun tujuan
                     data_masuk = {
                         "tanggal": tanggal.strftime("%Y-%m-%d"),
                         "jenis": JENIS_PEMASUKAN,
@@ -421,9 +411,9 @@ def halaman_catat_transaksi():
                     }
                     supabase.table("Cashflow").insert([data_keluar, data_masuk]).execute()
                     st.success(f"Transaksi Top Up {dari_akun} → {ke_akun} Rp{jumlah_int:,.0f}".replace(',', '.') + " berhasil disimpan 👌")
-
+                    st.cache_data.clear()
+                    st.rerun()
                 else:
-                    # Transaksi biasa
                     data_to_insert = {
                         "tanggal": tanggal.strftime("%Y-%m-%d"),
                         "jenis": jenis,
@@ -434,34 +424,11 @@ def halaman_catat_transaksi():
                     }
                     supabase.table("Cashflow").insert(data_to_insert).execute()
                     st.success(f"Transaksi '{kategori}' sebesar Rp{jumlah_int:,.0f}".replace(',', '.') + " berhasil disimpan 👌")
-
-                # Refresh cache & reload
-                st.cache_data.clear()
-                st.rerun()
+                    st.cache_data.clear()
+                    st.rerun()
 
 def halaman_lihat_saldo():
-    """
-    Menghitung dan menampilkan saldo kumulatif untuk setiap akun hingga tanggal yang dipilih.
-    """
-    # st.markdown(
-    #     """
-    #     <style>
-    #     .judul-custom {
-    #         text-align: center !important;
-    #         font-size: 24px !important;
-    #         color: #e5e5e5 !important;
-    #         font-family: "Courier New", monospace !important;
-    #         font-weight: bold !important;
-    #         margin-top: 0px !important;
-    #         margin-bottom: 14px !important;
-    #     }
-    #     </style>
-    #     <div class="judul-custom">
-    #         💰 Saldo Akun
-    #     </div>
-    #     """,
-    #     unsafe_allow_html=True
-    # )
+    """ Menghitung dan menampilkan saldo kumulatif untuk setiap akun hingga tanggal yang dipilih. """
     
     kol1, kol2 = st.columns(2)
 
@@ -599,47 +566,28 @@ def tampilkan_form_edit_hapus(df_filtered):
                         "akun": akun_edit, COL_NOMINAL: nominal_edit, "deskripsi": deskripsi_edit
                     }
                     supabase.table("Cashflow").update(data_baru).eq("id", id_terpilih).execute()
-                    st.cache_data.clear()
                     st.success("Transaksi berhasil diupdate!")
+                    st.cache_data.clear()
                     st.session_state.force_close_expander = True
                     st.rerun() # Muat ulang halaman untuk menampilkan data terbaru.
 
                 # Logika saat tombol Hapus ditekan.
                 if delete_button:
                     supabase.table("Cashflow").delete().eq("id", id_terpilih).execute()
-                    st.cache_data.clear()
                     st.warning("Transaksi berhasil dihapus!")
+                    st.cache_data.clear()
                     st.session_state.force_close_expander = True
                     st.rerun() # Muat ulang halaman.
 
                 if cancel_button:
-                    st.cache_data.clear()
                     st.info("Edit transaksi dibatalkan.")
+                    st.cache_data.clear()
                     st.session_state.force_close_expander = True
                     st.rerun()
 
 
 def halaman_daftar_transaksi():
     """Menampilkan semua data transaksi dalam bentuk tabel dengan opsi filter yang lengkap."""
-    # st.markdown(
-    #     """
-    #     <style>
-    #     .judul-custom {
-    #         text-align: center !important;
-    #         font-size: 24px !important;
-    #         color: #e5e5e5 !important;
-    #         font-family: "Courier New", monospace !important;
-    #         font-weight: bold !important;
-    #         margin-top: 0px !important;
-    #         margin-bottom: 14px !important;
-    #     }
-    #     </style>
-    #     <div class="judul-custom">
-    #         🧾 Daftar Transaksi
-    #     </div>
-    #     """,
-    #     unsafe_allow_html=True
-    # )
 
     # 1. Mengambil data dari Supabase, diurutkan berdasarkan tanggal terbaru.
     df_all = get_data() # Panggil fungsi terpusat
