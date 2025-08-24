@@ -441,7 +441,15 @@ def halaman_lihat_saldo():
     formatted_total = f"Rp {total_saldo:,.0f}".replace(',', '.')
     if total_saldo < 0:
         formatted_total = f"-Rp {abs(total_saldo):,.0f}".replace(',', '.')
-    col2.metric(label=f"Total Saldo per {tanggal_pilihan.strftime('%d %B %Y')}", value=formatted_total)
+    label_text = f"Total Saldo per {tanggal_pilihan.strftime('%d %B %Y')}"
+    value_text = formatted_total
+
+    col2.markdown(f"""
+    <div style="text-align: left;">
+        <p style="font-size: 14px; color: #a0a0a0; margin-bottom: -5px;">{label_text}</p>
+        <h2 style="font-size: 28px;">{value_text}</h2>
+    </div>
+    """, unsafe_allow_html=True)
 
     custom_divider()
 
@@ -456,9 +464,10 @@ def halaman_lihat_saldo():
             formatted_saldo = f"-Rp {abs(saldo):,.0f}".replace(',', '.')
         
         col1, col2 = st.columns([1, 1])
-        col1.markdown(f'<h5><img src="{logo_url}" height="30">&nbsp;&nbsp;{akun_name}</h5>', unsafe_allow_html=True)
+        col1.markdown(f'<h5><img src="{logo_url}" height="15">&nbsp;&nbsp;&nbsp;&nbsp;{akun_name}</h5>', unsafe_allow_html=True)
         color = "red" if saldo < 0 else "inherit"
         col2.markdown(f'<h5 style="text-align: right; color: {color};">{formatted_saldo}</h5>', unsafe_allow_html=True)
+        
         custom_divider(margin_top=15, margin_bottom=15)
 
 
