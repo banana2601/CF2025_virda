@@ -367,6 +367,11 @@ def halaman_dashboard():
                 "id": None, "hari": None, "bulan": None, "tahun": None,
                 "No.": st.column_config.TextColumn("No."),
                 "tanggal": st.column_config.DateColumn("Tanggal", format="YYYY-MM-DD"),
+                "jenis": st.column_config.TextColumn("Jenis"),
+                "kategori": st.column_config.TextColumn("Kategori"),
+                "akun": st.column_config.TextColumn("Akun"),
+                COL_NOMINAL: st.column_config.TextColumn(LABEL_NOMINAL),
+                "deskripsi": st.column_config.TextColumn("Deskripsi"),
             }
         )
 
@@ -538,6 +543,11 @@ def halaman_daftar_transaksi():
         "id": st.column_config.TextColumn("ID"),
         "No.": st.column_config.TextColumn("No."),
         "tanggal": st.column_config.DateColumn("Tanggal", format="YYYY-MM-DD"),
+        "jenis": st.column_config.TextColumn("Jenis"),
+        "kategori": st.column_config.TextColumn("Kategori"),
+        "akun": st.column_config.TextColumn("Akun"),
+        COL_NOMINAL: st.column_config.TextColumn(LABEL_NOMINAL),
+        "deskripsi": st.column_config.TextColumn("Deskripsi"),
         "hari": None, "bulan": None, "tahun": None,
     })
     
