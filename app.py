@@ -115,22 +115,58 @@ def get_data():
 
 # --- Helper untuk Halaman Dashboard ---
 def _create_date_filters(df):
-    """Membuat dan menampilkan widget filter tanggal, lalu mengembalikan tanggal yang dipilih."""
-    with st.expander("Filter Periode"):
+    """
+    Membuat dan menampilkan widget filter tanggal dengan logika default yang cerdas.
+    Default: Tanggal 1 bulan berjalan s/d hari ini.
+    Fallback: Tanggal terawal di bulan berjalan s/d hari ini.
+    """
+    with st.expander("Filter Periode", expanded=False): # Dibuat expanded=False agar lebih terlihat
+        # Jika tidak ada data sama sekali, jangan tampilkan filter.
+        if df.empty:
+            st.warning("Belum ada data transaksi untuk difilter.")
+            return None, None
+
+        # 1. Tentukan batas absolut (tanggal paling awal dan akhir di seluruh data)
         tgl_min_data = df['tanggal'].min().date()
         tgl_max_data = df['tanggal'].max().date()
+
+        # 2. Tentukan logika default berdasarkan tanggal hari ini
+        today = datetime.now().date()
+        first_day_of_current_month = today.replace(day=1)
+
+        # 3. Filter data hanya untuk periode bulan berjalan (dari tgl 1 s/d hari ini)
+        mask_current_month = (df['tanggal'].dt.date >= first_day_of_current_month) & (df['tanggal'].dt.date <= today)
+        df_current_month = df[mask_current_month]
+
+        # 4. Tentukan nilai default untuk widget date_input
+        if not df_current_month.empty:
+            # Jika ADA data di bulan ini, gunakan tanggal paling awal dari data tsb
+            # dan tanggal hari ini sebagai default.
+            default_tgl_awal = df_current_month['tanggal'].min().date()
+            default_tgl_akhir = today
+        else:
+            # Jika TIDAK ada data sama sekali di bulan ini, fallback ke tanggal transaksi terakhir.
+            # Ini mencegah error dan menampilkan data relevan terakhir.
+            default_tgl_awal = tgl_max_data
+            default_tgl_akhir = tgl_max_data
         
-        # Logika untuk menentukan tanggal default (bulan berjalan)
-        hari_acuan = tgl_max_data
-        default_tgl_awal = hari_acuan.replace(day=1)
-        hari_pertama_bulan_depan = (default_tgl_awal + timedelta(days=32)).replace(day=1)
-        hari_terakhir_bulan_acuan = hari_pertama_bulan_depan - timedelta(days=1)
-        default_tgl_akhir = min(hari_terakhir_bulan_acuan, tgl_max_data)
+        # Pastikan default tidak di luar rentang absolut (untuk keamanan)
+        default_tgl_awal = max(default_tgl_awal, tgl_min_data)
+        default_tgl_akhir = min(default_tgl_akhir, tgl_max_data)
 
+
+        # 5. Tampilkan widget di Streamlit
         col1, col2 = st.columns(2)
-        tgl_awal = col1.date_input("Dari", value=default_tgl_awal, min_value=tgl_min_data, max_value=tgl_max_data)
-        tgl_akhir = col2.date_input("Sampai", value=default_tgl_akhir, min_value=tgl_min_data, max_value=tgl_max_data)
+        tgl_awal = col1.date_input("Dari", 
+                                   value=default_tgl_awal, 
+                                   min_value=tgl_min_data, 
+                                   max_value=tgl_max_data)
+        tgl_akhir = col2.date_input("Sampai", 
+                                    value=default_tgl_akhir, 
+                                    min_value=tgl_min_data, 
+                                    max_value=tgl_max_data)
 
+    # Validasi standar
     if tgl_awal > tgl_akhir:
         st.error("Tanggal Mulai tidak boleh melebihi Tanggal Selesai.")
         return None, None
