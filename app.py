@@ -34,12 +34,18 @@ JENIS_PEMASUKAN = "Masuk"
 JENIS_PENGELUARAN = "Keluar"
 KATEGORI_TOP_UP = "Top Up"  # Konstanta untuk kategori "Top Up"
 
-# --- Daftar Kategori Transaksi ---
+# --- Kategori dan Metode Biaya Admin ---
+KATEGORI_BIAYA_ADMIN = "Biaya Admin"
+METODE_BIAYA_SUMBER = "Dikenakan pada akun sumber"
+METODE_BIAYA_TUJUAN = "Dipotong dari akun tujuan"
+
+# --- Daftar Kategori Transaksi (Update KATEGORI_PENGELUARAN) ---
 KATEGORI_PEMASUKAN = sorted(["Dividen", "Gaji", "Hadiah", "Hibah", "Lainnya", "Reimbursement", KATEGORI_TOP_UP])
 KATEGORI_PENGELUARAN = sorted([
     "Hobi/Keinginan", "Internet", "Kendaraan/Mobilitas", "Kesehatan/Perawatan", "Lain-lain",
     "Main/Jajan", "Makan", "Pengembangan Diri", "Reimbursement", "Tak Terduga", "Tempat Tinggal",
-    KATEGORI_TOP_UP
+    KATEGORI_TOP_UP,
+    KATEGORI_BIAYA_ADMIN 
 ])
 
 # --- Daftar Pilihan Akun ---
@@ -84,7 +90,7 @@ def init_connection():
 
 supabase = init_connection()
 
-@st.cache_data(ttl=600)  # Cache data selama 10 menit
+@st.cache_data(ttl=300) # 5 menit
 def get_data():
     """
     Mengambil, membersihkan, dan mengembalikan semua data transaksi.
@@ -116,62 +122,60 @@ def get_data():
 # --- Helper untuk Halaman Dashboard ---
 def _create_date_filters(df):
     """
-    Membuat dan menampilkan widget filter tanggal dengan logika default yang cerdas.
-    Default: Tanggal 1 bulan berjalan s/d hari ini.
-    Fallback: Tanggal terawal di bulan berjalan s/d hari ini.
+    Membuat dan menampilkan widget filter tanggal dengan logika yang final:
+    - Menangani semua kasus khusus untuk tanggal mulai dan selesai.
+    - Tampilan default se-fleksibel mungkin sesuai keinginan dan data yang ada.
     """
-    with st.expander("Filter Periode", expanded=False): # Dibuat expanded=False agar lebih terlihat
-        # Jika tidak ada data sama sekali, jangan tampilkan filter.
+    with st.expander("Filter Periode", expanded=False):
         if df.empty:
             st.warning("Belum ada data transaksi untuk difilter.")
-            return None, None
+            today = datetime.now().date()
+            first_day_of_current_month = today.replace(day=1)
+            col1, col2 = st.columns(2)
+            tgl_awal = col1.date_input("Dari", value=first_day_of_current_month)
+            tgl_akhir = col2.date_input("Sampai", value=today)
+            
+            if tgl_awal > tgl_akhir:
+                st.error("Tanggal 'Dari' tidak boleh melebihi tanggal 'Sampai'.")
+                return None, None
+            return tgl_awal, tgl_akhir
 
-        # 1. Tentukan batas absolut (tanggal paling awal dan akhir di seluruh data)
+        # 1. Tentukan batas-batas tanggal dari data dan tanggal hari ini
         tgl_min_data = df['tanggal'].min().date()
         tgl_max_data = df['tanggal'].max().date()
-
-        # 2. Tentukan logika default berdasarkan tanggal hari ini
         today = datetime.now().date()
         first_day_of_current_month = today.replace(day=1)
 
-        # 3. Filter data hanya untuk periode bulan berjalan (dari tgl 1 s/d hari ini)
-        mask_current_month = (df['tanggal'].dt.date >= first_day_of_current_month) & (df['tanggal'].dt.date <= today)
-        df_current_month = df[mask_current_month]
+        # 2. Tentukan batas absolut untuk kalender yang bisa dipilih
+        max_selectable_date = max(today, tgl_max_data)
 
-        # 4. Tentukan nilai default untuk widget date_input
-        if not df_current_month.empty:
-            # Jika ADA data di bulan ini, gunakan tanggal paling awal dari data tsb
-            # dan tanggal hari ini sebagai default.
-            default_tgl_awal = df_current_month['tanggal'].min().date()
-            default_tgl_akhir = today
-        else:
-            # Jika TIDAK ada data sama sekali di bulan ini, fallback ke tanggal transaksi terakhir.
-            # Ini mencegah error dan menampilkan data relevan terakhir.
-            default_tgl_awal = tgl_max_data
-            default_tgl_akhir = tgl_max_data
-        
-        # Pastikan default tidak di luar rentang absolut (untuk keamanan)
-        default_tgl_awal = max(default_tgl_awal, tgl_min_data)
-        default_tgl_akhir = min(default_tgl_akhir, tgl_max_data)
+        # 3. Tentukan nilai default yang aman dan cerdas
+        #    - Untuk tanggal mulai, pilih yg lebih AKHIR antara tgl 1 atau data pertama
+        #    - Untuk tanggal selesai, tetap gunakan tanggal hari ini
+        default_tgl_awal = max(first_day_of_current_month, tgl_min_data)
+        default_tgl_akhir = today
 
-
-        # 5. Tampilkan widget di Streamlit
+        # 4. Tampilkan widget dengan konfigurasi final
         col1, col2 = st.columns(2)
-        tgl_awal = col1.date_input("Dari", 
-                                   value=default_tgl_awal, 
-                                   min_value=tgl_min_data, 
-                                   max_value=tgl_max_data)
-        tgl_akhir = col2.date_input("Sampai", 
-                                    value=default_tgl_akhir, 
-                                    min_value=tgl_min_data, 
-                                    max_value=tgl_max_data)
+        tgl_awal = col1.date_input(
+            "Dari",
+            value=default_tgl_awal,          # Menggunakan nilai default yang sudah aman
+            min_value=tgl_min_data,
+            max_value=max_selectable_date
+        )
+        tgl_akhir = col2.date_input(
+            "Sampai",
+            value=default_tgl_akhir,
+            min_value=tgl_min_data,
+            max_value=max_selectable_date
+        )
 
-    # Validasi standar
-    if tgl_awal > tgl_akhir:
-        st.error("Tanggal Mulai tidak boleh melebihi Tanggal Selesai.")
-        return None, None
+        # 5. Validasi
+        if tgl_awal > tgl_akhir:
+            st.error("Tanggal 'Dari' tidak boleh melebihi tanggal 'Sampai'.")
+            return None, None
 
-    return tgl_awal, tgl_akhir
+        return tgl_awal, tgl_akhir
 
 def _display_summary_pie_chart(df, title):
     """Menampilkan metrik total dan diagram lingkaran untuk data yang diberikan."""
@@ -232,52 +236,125 @@ def _apply_detailed_filters(df):
     
     return df_display
 
-# --- Helper untuk Halaman Catat Transaksi ---
+# --- Helper untuk Halaman Catat Transaksi (REFAKTORISASI) ---
+
+def _parse_and_validate_nominal(input_str, field_name):
+    """
+    Membersihkan dan memvalidasi input nominal dari form.
+    Mengembalikan integer jika valid, atau None jika tidak.
+    """
+    # Jika input kosong atau None, anggap saja 0 dan valid.
+    if not input_str:
+        return 0
+    
+    try:
+        # Menghapus titik (separator ribuan) dan spasi, lalu konversi ke integer.
+        nominal_int = int(input_str.replace('.', '').strip())
+        if nominal_int < 0:
+            st.error(f"Input '{field_name}' tidak boleh negatif.")
+            return None
+        return nominal_int
+    except (ValueError, TypeError):
+        st.error(f"Input '{field_name}' tidak valid. Harap masukkan angka saja.")
+        return None
+
+def _prepare_top_up_transactions(form_data, jumlah_int, biaya_admin_int):
+    """
+    Mempersiapkan list berisi transaksi-transaksi yang dibutuhkan untuk 'Top Up'.
+    Fungsi ini bertanggung jawab untuk membuat transaksi keluar, masuk, dan biaya admin.
+    """
+    dari_akun = form_data['dari_akun']
+    ke_akun = form_data['ke_akun']
+    tanggal_str = form_data['tanggal'].strftime("%Y-%m-%d")
+
+    # Validasi penting: akun sumber dan tujuan tidak boleh sama.
+    if dari_akun == ke_akun:
+        st.warning("Akun 'Dari' dan 'Ke' tidak boleh sama.")
+        return [] # Kembalikan list kosong jika tidak valid
+
+    # 1. Transaksi Keluar (pokok) dari akun sumber.
+    transaksi_keluar = {
+        "tanggal": tanggal_str, "jenis": JENIS_PENGELUARAN, "kategori": KATEGORI_TOP_UP,
+        "akun": dari_akun, COL_NOMINAL: jumlah_int, "deskripsi": f"Top Up ke {ke_akun}",
+    }
+
+    # 2. Transaksi Masuk (pokok) ke akun tujuan.
+    transaksi_masuk = {
+        "tanggal": tanggal_str, "jenis": JENIS_PEMASUKAN, "kategori": KATEGORI_TOP_UP,
+        "akun": ke_akun, COL_NOMINAL: jumlah_int, "deskripsi": f"Top Up dari {dari_akun}",
+    }
+
+    transactions = [transaksi_keluar, transaksi_masuk]
+
+    # 3. Transaksi Biaya Admin (jika ada).
+    if biaya_admin_int > 0:
+        # Tentukan akun mana yang akan dikenakan biaya admin.
+        akun_biaya_admin = dari_akun if form_data['metode_biaya'] == METODE_BIAYA_SUMBER else ke_akun
+        transaksi_biaya_admin = {
+            "tanggal": tanggal_str, "jenis": JENIS_PENGELUARAN, "kategori": KATEGORI_BIAYA_ADMIN,
+            "akun": akun_biaya_admin, COL_NOMINAL: biaya_admin_int, "deskripsi": f"Biaya admin Top Up dari {dari_akun} ke {ke_akun}",
+        }
+        transactions.append(transaksi_biaya_admin)
+
+    return transactions
+
+def _prepare_regular_transaction(form_data, jumlah_int):
+    """
+    Mempersiapkan list berisi satu transaksi reguler (bukan Top Up).
+    """
+    return [{
+        "tanggal": form_data['tanggal'].strftime("%Y-%m-%d"), "jenis": form_data['jenis'],
+        "kategori": form_data['kategori'], "akun": form_data['akun'],
+        COL_NOMINAL: jumlah_int, "deskripsi": form_data['deskripsi'],
+    }]
+
 def _handle_submission(submitted, form_data):
-    """Memproses logika submit form, termasuk validasi dan penyimpanan data."""
+    """
+    Memproses logika submit form dengan memanggil helper yang sesuai.
+    Fungsi ini sekarang lebih ramping dan hanya bertugas sebagai 'koordinator'.
+    """
     if not submitted:
         return
 
-    # Validasi input nominal
-    jumlah_str = form_data['jumlah_input'].replace('.', '').strip()
-    if not jumlah_str.isdigit() or int(jumlah_str) <= 0:
-        st.error("Input Nominal tidak valid. Harap masukkan angka yang lebih besar dari 0.")
+    # Validasi semua input nominal terlebih dahulu.
+    jumlah_int = _parse_and_validate_nominal(form_data['jumlah_input'], "Nominal")
+    biaya_admin_int = _parse_and_validate_nominal(form_data.get('biaya_admin_input'), "Biaya Admin")
+    
+    # Jika salah satu validasi gagal, hentikan proses.
+    if jumlah_int is None or biaya_admin_int is None:
+        return
+    # Nominal utama wajib diisi.
+    if jumlah_int <= 0:
+        st.error("Nominal transaksi harus lebih besar dari 0.")
         return
 
-    jumlah_int = int(jumlah_str)
-    
-    # Memproses transaksi Top Up (dua entri: keluar dan masuk)
-    if form_data['jenis'] == JENIS_PENGELUARAN and form_data['kategori'] == KATEGORI_TOP_UP:
-        if form_data['dari_akun'] == form_data['ke_akun']:
-            st.warning("Akun 'Dari' dan 'Ke' tidak boleh sama.")
-            return
-        
-        data_keluar = {
-            "tanggal": form_data['tanggal'].strftime("%Y-%m-%d"), "jenis": JENIS_PENGELUARAN,
-            "kategori": KATEGORI_TOP_UP, "akun": form_data['dari_akun'],
-            COL_NOMINAL: jumlah_int, "deskripsi": form_data['deskripsi'],
-        }
-        data_masuk = {
-            "tanggal": form_data['tanggal'].strftime("%Y-%m-%d"), "jenis": JENIS_PEMASUKAN,
-            "kategori": KATEGORI_TOP_UP, "akun": form_data['ke_akun'],
-            COL_NOMINAL: jumlah_int, "deskripsi": form_data['deskripsi'],
-        }
-        supabase.table("Cashflow").insert([data_keluar, data_masuk]).execute()
-        st.success(f"Top Up {form_data['dari_akun']} → {form_data['ke_akun']} Rp{jumlah_int:,.0f}".replace(',', '.') + " berhasil.")
+    transaksi_to_insert = []
+    sukses_message = ""
+    is_top_up = (form_data['jenis'] == JENIS_PENGELUARAN and form_data['kategori'] == KATEGORI_TOP_UP)
 
-    # Memproses transaksi reguler (satu entri)
+    # Memilih 'pabrik' transaksi yang sesuai.
+    if is_top_up:
+        transaksi_to_insert = _prepare_top_up_transactions(form_data, jumlah_int, biaya_admin_int)
+        if transaksi_to_insert: # Jika validasi di dalam helper berhasil
+            sukses_message = f"Top Up dari {form_data['dari_akun']} ke {form_data['ke_akun']} berhasil dicatat."
     else:
-        data_to_insert = {
-            "tanggal": form_data['tanggal'].strftime("%Y-%m-%d"), "jenis": form_data['jenis'],
-            "kategori": form_data['kategori'], "akun": form_data['akun'],
-            COL_NOMINAL: jumlah_int, "deskripsi": form_data['deskripsi'],
-        }
-        supabase.table("Cashflow").insert(data_to_insert).execute()
-        st.success(f"Transaksi '{form_data['kategori']}' Rp{jumlah_int:,.0f}".replace(',', '.') + " berhasil disimpan.")
+        transaksi_to_insert = _prepare_regular_transaction(form_data, jumlah_int)
+        sukses_message = f"Transaksi '{form_data['kategori']}' Rp{jumlah_int:,.0f} berhasil disimpan.".replace(',', '.')
 
-    # Membersihkan cache dan memuat ulang halaman untuk menampilkan data terbaru
-    st.cache_data.clear()
-    st.rerun()
+    # Jika tidak ada transaksi yang perlu dimasukkan (misalnya karena validasi gagal), hentikan.
+    if not transaksi_to_insert:
+        return
+
+    # Eksekusi ke Database (SATU PER SATU untuk keamanan data).
+    try:
+        for transaksi in transaksi_to_insert:
+            supabase.table("Cashflow").insert(transaksi).execute()
+        
+        st.success(sukses_message)
+        st.cache_data.clear() # Bersihkan cache agar data baru langsung muncul
+        st.rerun()
+    except Exception as e:
+        st.error(f"Gagal menyimpan data: {e}")
 
 # --- Helper untuk Halaman Daftar Transaksi (Edit/Hapus) ---
 def _handle_edit_form_actions(buttons, id_terpilih, form_values):
@@ -376,7 +453,7 @@ def halaman_dashboard():
         )
 
 def halaman_catat_transaksi():
-    """Menampilkan form untuk mencatat transaksi baru."""
+    """Menampilkan form untuk mencatat transaksi baru dengan logika biaya admin."""
     st.session_state.setdefault("jenis", JENIS_PEMASUKAN)
     st.session_state.setdefault("kategori", KATEGORI_PEMASUKAN[0])
     st.session_state.setdefault("akun", PILIHAN_AKUN[0])
@@ -395,16 +472,31 @@ def halaman_catat_transaksi():
     with st.form("form_transaksi", clear_on_submit=True):
         tanggal = st.date_input("Tanggal", key="tanggal")
         
+        # Inisialisasi variabel untuk form_data
+        akun, dari_akun, ke_akun, biaya_admin_input, metode_biaya = None, None, None, "0", None
+
         # Logika kondisional untuk menampilkan field yang relevan
-        if jenis == JENIS_PENGELUARAN and kategori == KATEGORI_TOP_UP:
-            dari_akun = st.selectbox("Dari Akun", PILIHAN_AKUN, key="dari_akun")
-            ke_akun = st.selectbox("Ke Akun", PILIHAN_AKUN, key="ke_akun")
-            akun = None # Tidak digunakan untuk Top Up
+        is_top_up = (jenis == JENIS_PENGELUARAN and kategori == KATEGORI_TOP_UP)
+        jumlah_input = st.text_input(LABEL_NOMINAL, placeholder="50000 atau 50.000 sama aja")
+        
+        if is_top_up:
+            col_dari, col_ke = st.columns(2)
+            dari_akun = col_dari.selectbox("Dari Akun", PILIHAN_AKUN, key="dari_akun")
+            ke_akun = col_ke.selectbox("Ke Akun", PILIHAN_AKUN, key="ke_akun")
+            
+            custom_divider(margin_top=10, margin_bottom=10)
+            st.markdown("###### Detail Biaya Admin (Opsional)")
+            
+            col_biaya, col_metode = st.columns(2)
+            biaya_admin_input = col_biaya.text_input("Nominal Biaya Admin (Rp)", placeholder="2500 atau 2.500 sama aja")
+            metode_biaya = col_metode.radio(
+                "Metode Pengenaan Biaya",
+                [METODE_BIAYA_SUMBER, METODE_BIAYA_TUJUAN],
+                key="metode_biaya"
+            )
         else:
             akun = st.selectbox("Akun", PILIHAN_AKUN, key="akun")
-            dari_akun, ke_akun = None, None
-
-        jumlah_input = st.text_input(LABEL_NOMINAL, placeholder="Contoh: 50000 atau 50.000 sama aja")
+        custom_divider(margin_top=10, margin_bottom=10)
         deskripsi = st.text_area("Deskripsi")
         
         # Tombol form
@@ -415,12 +507,12 @@ def halaman_catat_transaksi():
         form_data = {
             "jenis": jenis, "kategori": kategori, "tanggal": tanggal,
             "akun": akun, "dari_akun": dari_akun, "ke_akun": ke_akun,
-            "jumlah_input": jumlah_input, "deskripsi": deskripsi
+            "jumlah_input": jumlah_input, "deskripsi": deskripsi,
+            "biaya_admin_input": biaya_admin_input, "metode_biaya": metode_biaya
         }
 
     # Proses submit di luar form untuk menjaga state
     _handle_submission(submitted, form_data)
-
 
 def halaman_lihat_saldo():
     """Menghitung dan menampilkan saldo kumulatif untuk setiap akun."""
@@ -456,7 +548,7 @@ def halaman_lihat_saldo():
     </div>
     """, unsafe_allow_html=True)
 
-    custom_divider()
+    custom_divider(margin_top=15, margin_bottom=10)
 
     # Menampilkan daftar saldo per akun, diurutkan berdasarkan saldo terbesar
     akun_terurut = sorted(SEMUA_AKUN_DENGAN_LOGO.keys(), key=lambda akun: saldo_akun.get(akun, 0), reverse=True)
@@ -468,12 +560,12 @@ def halaman_lihat_saldo():
         if saldo < 0:
             formatted_saldo = f"-Rp {abs(saldo):,.0f}".replace(',', '.')
         
-        col1, col2 = st.columns([1, 1])
-        col1.markdown(f'<h5><img src="{logo_url}" height="15">&nbsp;&nbsp;&nbsp;&nbsp;{akun_name}</h5>', unsafe_allow_html=True)
+        col1, col2 = st.columns([1,1])
+        col1.markdown(f'<h5><img src="{logo_url}" height="15">&emsp;&emsp;{akun_name}</h5>', unsafe_allow_html=True)
         color = "red" if saldo < 0 else "inherit"
         col2.markdown(f'<h5 style="text-align: right; color: {color};">{formatted_saldo}</h5>', unsafe_allow_html=True)
         
-        custom_divider(margin_top=15, margin_bottom=15)
+        custom_divider(margin_top=5, margin_bottom=10)
 
 
 def tampilkan_form_edit_hapus(df_filtered):
