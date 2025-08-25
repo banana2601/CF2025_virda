@@ -548,7 +548,7 @@ def halaman_lihat_saldo():
     </div>
     """, unsafe_allow_html=True)
 
-    custom_divider(margin_top=15, margin_bottom=10)
+    custom_divider(margin_top=5, margin_bottom=0)
 
     # Menampilkan daftar saldo per akun, diurutkan berdasarkan saldo terbesar
     akun_terurut = sorted(SEMUA_AKUN_DENGAN_LOGO.keys(), key=lambda akun: saldo_akun.get(akun, 0), reverse=True)
@@ -561,11 +561,11 @@ def halaman_lihat_saldo():
             formatted_saldo = f"-Rp {abs(saldo):,.0f}".replace(',', '.')
         
         col1, col2 = st.columns([1,1])
-        col1.markdown(f'<h5><img src="{logo_url}" height="15">&emsp;&emsp;{akun_name}</h5>', unsafe_allow_html=True)
+        col1.markdown(f'<h5><img src="{logo_url}" height="15">&emsp;{akun_name}</h5>', unsafe_allow_html=True)
         color = "red" if saldo < 0 else "inherit"
         col2.markdown(f'<h5 style="text-align: right; color: {color};">{formatted_saldo}</h5>', unsafe_allow_html=True)
         
-        custom_divider(margin_top=5, margin_bottom=10)
+        custom_divider(margin_top=0, margin_bottom=0)
 
 
 def tampilkan_form_edit_hapus(df_filtered):
@@ -674,7 +674,7 @@ def main():
         format_func=lambda key: menu_options[key],
     )
     
-    custom_divider()
+    custom_divider(margin_top=10, margin_bottom=20)
 
     # Router untuk menampilkan halaman yang sesuai
     if menu == PAGE_DASHBOARD:
