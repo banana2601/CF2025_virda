@@ -193,14 +193,14 @@ def _display_summary_pie_chart(df, title):
         data_per_kategori.reset_index(),
         values=COL_NOMINAL,
         names='kategori',
-        hole=0.3
+        hole=0.38
     )
     fig.update_traces(textposition='outside', textinfo='percent+label', textfont_size=12)
     fig.update_layout(
         margin={'t': 40, 'b': 60, 'l': 60, 'r': 60},
         showlegend=False, height=400, width=400
     )
-    st.plotly_chart(fig, use_container_width=False)
+    st.plotly_chart(fig, use_container_width=True)
 
 def _apply_detailed_filters(df):
     """Menerapkan filter detail (tahun, bulan, hari, jenis, dll.) pada DataFrame."""
