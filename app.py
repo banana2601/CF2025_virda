@@ -273,9 +273,9 @@ def _prepare_top_up_transactions(form_data, jumlah_int, biaya_admin_int):
         return [] # Kembalikan list kosong jika tidak valid
     
     # Mengambil deskripsi dari input user. Jika kosong, gunakan template default.
-    deskripsi_user = form_data.get('deskripsi', '').strip() # <<< PERUBAHAN
-    deskripsi_keluar = deskripsi_user if deskripsi_user else f"Top Up ke {ke_akun}" # <<< PERUBAHAN
-    deskripsi_masuk = deskripsi_user if deskripsi_user else f"Top Up dari {dari_akun}" # <<< PERUBAHAN
+    deskripsi_user = form_data.get('deskripsi', '').strip() 
+    deskripsi_keluar = deskripsi_user if deskripsi_user else f"Top Up ke {ke_akun}" 
+    deskripsi_masuk = deskripsi_user if deskripsi_user else f"Top Up dari {dari_akun}"
 
     # 1. Transaksi Keluar (pokok) dari akun sumber.
     transaksi_keluar = {
