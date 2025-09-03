@@ -42,7 +42,7 @@ METODE_BIAYA_TUJUAN = "Dipotong dari akun tujuan"
 # --- Daftar Kategori Transaksi (Update KATEGORI_PENGELUARAN) ---
 KATEGORI_PEMASUKAN = sorted(["Dividen", "Gaji", "Hadiah", "Hibah", "Lainnya", "Reimbursement", KATEGORI_TOP_UP])
 KATEGORI_PENGELUARAN = sorted([
-    "Hobi/Keinginan", "Internet", "Kendaraan/Mobilitas", "Kesehatan/Perawatan", "Lain-lain",
+    "Hobi/Keinginan", "Internet", "Investasi", "Kendaraan/Mobilitas", "Kesehatan/Perawatan", "Lain-lain",
     "Main/Jajan", "Makan", "Pengembangan Diri", "Reimbursement", "Tak Terduga", "Tempat Tinggal",
     KATEGORI_TOP_UP,
     KATEGORI_BIAYA_ADMIN 
