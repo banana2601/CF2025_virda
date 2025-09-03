@@ -271,17 +271,22 @@ def _prepare_top_up_transactions(form_data, jumlah_int, biaya_admin_int):
     if dari_akun == ke_akun:
         st.warning("Akun 'Dari' dan 'Ke' tidak boleh sama.")
         return [] # Kembalikan list kosong jika tidak valid
+    
+    # Mengambil deskripsi dari input user. Jika kosong, gunakan template default.
+    deskripsi_user = form_data.get('deskripsi', '').strip() # <<< PERUBAHAN
+    deskripsi_keluar = deskripsi_user if deskripsi_user else f"Top Up ke {ke_akun}" # <<< PERUBAHAN
+    deskripsi_masuk = deskripsi_user if deskripsi_user else f"Top Up dari {dari_akun}" # <<< PERUBAHAN
 
     # 1. Transaksi Keluar (pokok) dari akun sumber.
     transaksi_keluar = {
         "tanggal": tanggal_str, "jenis": JENIS_PENGELUARAN, "kategori": KATEGORI_TOP_UP,
-        "akun": dari_akun, COL_NOMINAL: jumlah_int, "deskripsi": f"Top Up ke {ke_akun}",
+        "akun": dari_akun, COL_NOMINAL: jumlah_int, "deskripsi": deskripsi_keluar,
     }
 
     # 2. Transaksi Masuk (pokok) ke akun tujuan.
     transaksi_masuk = {
         "tanggal": tanggal_str, "jenis": JENIS_PEMASUKAN, "kategori": KATEGORI_TOP_UP,
-        "akun": ke_akun, COL_NOMINAL: jumlah_int, "deskripsi": f"Top Up dari {dari_akun}",
+        "akun": ke_akun, COL_NOMINAL: jumlah_int, "deskripsi": deskripsi_masuk,
     }
 
     transactions = [transaksi_keluar, transaksi_masuk]
