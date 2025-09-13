@@ -40,32 +40,28 @@ METODE_BIAYA_SUMBER = "Dikenakan pada akun sumber"
 METODE_BIAYA_TUJUAN = "Dipotong dari akun tujuan"
 
 # --- Daftar Kategori Transaksi (Update KATEGORI_PENGELUARAN) ---
-KATEGORI_PEMASUKAN = sorted(["Dividen", "Gaji", "Hadiah", "Hibah", "Lainnya", "Reimbursement", KATEGORI_TOP_UP])
+KATEGORI_PEMASUKAN = sorted(["Gaji", "Hadiah", "Hibah", "Lainnya", "Reimbursement", KATEGORI_TOP_UP])
 KATEGORI_PENGELUARAN = sorted([
-    "Hobi/Keinginan", "Internet", "Investasi", "Kendaraan/Mobilitas", "Kesehatan/Perawatan", "Lain-lain",
-    "Main/Jajan", "Makan", "Pengembangan Diri", "Reimbursement", "Tak Terduga", "Tempat Tinggal",
+    "Hobi/Keinginan", "Internet", "Investasi", "Transportasi", "Skin-Hair-Body Care", "Lain-lain",
+    "Entertainment", "Food & Grocery", "Pengembangan Diri", "Reimbursement", "Tak Terduga", "Primary Needs",
     KATEGORI_TOP_UP,
     KATEGORI_BIAYA_ADMIN 
 ])
 
 # --- Daftar Pilihan Akun ---
 PILIHAN_AKUN = sorted([
-    "BNI", "Cash", "Jago", "Jago (tersier)", "GoPay", "ShopeePay", "DANA", "OVO", "Dana Darurat", "Tabungan"
+    "BCA", "Cash", "Jago", "GoPay", "ShopeePay", "e-Money"
 ])
 
 # --- Kamus (Dictionary) untuk Logo Akun ---
 LOGO_JAGO = "https://upload.wikimedia.org/wikipedia/commons/c/c0/Logo-jago.svg"
 SEMUA_AKUN_DENGAN_LOGO = {
-    "BNI": "https://upload.wikimedia.org/wikipedia/id/thumb/5/55/BNI_logo.svg/1280px-BNI_logo.svg.png",
+    "BCA": "https://upload.wikimedia.org/wikipedia/commons/5/5c/Bank_Central_Asia.svg",
     "Cash": "https://upload.wikimedia.org/wikipedia/commons/d/d8/Indonesia_2016_100000r_o.jpg",
     "Jago": LOGO_JAGO,
-    "Jago (tersier)": LOGO_JAGO,
     "GoPay": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Gopay_logo.svg/2560px-Gopay_logo.svg.png",
     "ShopeePay": "https://upload.wikimedia.org/wikipedia/commons/f/fe/Shopee.svg",
-    "DANA": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Logo_dana_blue.svg/2560px-Logo_dana_blue.svg.png",
-    "OVO": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Logo_ovo_purple.svg/2560px-Logo_ovo_purple.svg.png",
-    "Dana Darurat": LOGO_JAGO,
-    "Tabungan": LOGO_JAGO
+    "e-Money": "https://id.wikipedia.org/wiki/Bank_Mandiri#/media/Berkas:Bank_Mandiri_logo_2016.svg"
 }
 
 # ===================================================================================
